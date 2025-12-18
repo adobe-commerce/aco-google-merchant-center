@@ -1,0 +1,17 @@
+{
+  "exclude": ["node_modules", "dist"],
+  "compilerOptions": {
+    "target": "ES6",
+    "module": "ES6",
+    "sourceMap": true,
+    "allowJs": true,
+    "noEmit": true
+  },
+  "include": [
+    "actions/**/*",
+    "clients/**/*",
+    "transformers/**/*",
+    "types/**/*",
+    "test/**/*"
+  ]
+}

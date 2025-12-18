@@ -1,0 +1,34 @@
+application:
+  runtimeManifest:
+    packages:
+      aco-google-merchant-center:
+        license: Apache-2.0
+        actions:
+          catalog:
+            function: actions/catalog/index.js
+            web: "no"
+            runtime: nodejs:22
+            inputs:
+              LOG_LEVEL: debug
+              GOOGLE_MERCHANT_ID: $GOOGLE_MERCHANT_ID
+              GOOGLE_DATA_SOURCE_ID: $GOOGLE_DATA_SOURCE_ID
+              GOOGLE_FEED_LABEL: $GOOGLE_FEED_LABEL
+              GOOGLE_CREDS_PATH: $GOOGLE_CREDS_PATH
+              STORE_BASE_URL: $STORE_BASE_URL
+              STORE_URL_TEMPLATE: $STORE_URL_TEMPLATE
+              ACO_API_BASE_URL: $ACO_API_BASE_URL
+              ACO_VIEW_ID: $ACO_VIEW_ID
+              ACO_PRICE_BOOK_ID: $ACO_PRICE_BOOK_ID
+            annotations:
+              require-adobe-auth: false
+              final: true
+  events:
+    registrations:
+      Event Registration Default:
+        description: Registration for IO Events
+        events_of_interest:
+          - provider_metadata: dx_commerce_catalog
+            event_codes:
+              - cm.adobe.commerce.storefront.events.product.aco
+              - com.adobe.commerce.storefront.events.price.aco
+        runtime_action: aco-google-merchant-center/catalog
