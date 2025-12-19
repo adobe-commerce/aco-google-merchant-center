@@ -18,156 +18,8 @@ const {
   HTTP_INTERNAL_ERROR,
 } = require("../constants.js");
 const { errorResponse, successResponse } = require("../responses.js");
-const {
-  checkMissingRequestInputs,
-  chunk,
-  groupByOperation,
-  groupBySourceLocale,
-  stringParameters,
-} = require("../utils.js");
-const { getProducts } = require("../../clients/commerce.js");
-const {
-  insertProducts,
-  updateProducts,
-  deleteProducts,
-} = require("../../clients/google.js");
-const { transformProduct } = require("../../transformers/product.js");
-
-const BATCH_SIZE = 25;
-
-/**
- * Fetches products from Commerce in batches and transforms them.
- *
- * @param {object} params - The parameters for the request
- * @param {string} tenantId - The tenant ID
- * @param {object[]} items - Items with sku and sources to fetch
- * @param {Logger} logger - The logger to use
- * @returns {Promise<object[]>} Array of transformed Google product inputs
- */
-const fetchAndTransformProducts = async (params, tenantId, items, logger) => {
-  const {
-    ACO_API_BASE_URL,
-    ACO_PRICE_BOOK_ID,
-    ACO_VIEW_ID,
-    GOOGLE_FEED_LABEL,
-    STORE_URL_TEMPLATE,
-  } = params;
-  const itemsBySource = groupBySourceLocale(items);
-  const transformedProducts = [];
-
-  for (const [locale, { source, items: sourceItems }] of Object.entries(
-    itemsBySource
-  )) {
-    const skus = sourceItems.map((item) => item.sku);
-    const skuBatches = chunk(skus, BATCH_SIZE);
-
-    logger.info(
-      `Fetching ${skus.length} products for locale ${locale} in ${skuBatches.length} batch(es)`
-    );
-
-    for (const skuBatch of skuBatches) {
-      const products = await getProducts(
-        ACO_API_BASE_URL,
-        ACO_VIEW_ID,
-        ACO_PRICE_BOOK_ID,
-        tenantId,
-        skuBatch,
-        source
-      );
-
-      for (const product of products) {
-        const googleProduct = transformProduct(
-          GOOGLE_FEED_LABEL,
-          product,
-          source,
-          STORE_URL_TEMPLATE
-        );
-        transformedProducts.push(googleProduct);
-      }
-    }
-  }
-
-  return transformedProducts;
-};
-
-/**
- * Prepares delete items with flattened source information.
- *
- * @param {object[]} items - Items to delete with sku and sources
- * @returns {Array<{sku: string, source: object}>} Flattened items for deletion
- */
-const prepareDeleteItems = (items) => {
-  const deleteItems = [];
-  for (const item of items) {
-    for (const source of item.sources) {
-      deleteItems.push({ sku: item.sku, source });
-    }
-  }
-  return deleteItems;
-};
-
-/**
- * Process a product event for a given tenant using batched operations.
- *
- * @param {string} tenantId - The tenant ID
- * @param {object[]} items - The items to process
- * @param {object} params - The parameters for the request
- * @param {Logger} logger - The logger to use
- */
-const processProductEvent = async (tenantId, items, params, logger) => {
-  const { create, update, delete: deleteOps } = groupByOperation(items);
-  logger.info(
-    `Processing ${create.length} creates, ${update.length} updates, ${deleteOps.length} deletes`
-  );
-
-  // Handle creates
-  if (create.length > 0) {
-    const productsToInsert = await fetchAndTransformProducts(
-      params,
-      tenantId,
-      create,
-      logger
-    );
-    await insertProducts(
-      params.GOOGLE_CREDS_PATH,
-      params.GOOGLE_MERCHANT_ID,
-      params.GOOGLE_DATA_SOURCE_ID,
-      productsToInsert,
-      logger
-    );
-  }
-
-  // Handle updates
-  if (update.length > 0) {
-    const productsToUpdate = await fetchAndTransformProducts(
-      params,
-      tenantId,
-      update,
-      logger
-    );
-    await updateProducts(
-      params.GOOGLE_CREDS_PATH,
-      params.GOOGLE_MERCHANT_ID,
-      params.GOOGLE_DATA_SOURCE_ID,
-      productsToUpdate,
-      logger
-    );
-  }
-
-  // Handle deletes
-  if (deleteOps.length > 0) {
-    const deleteItems = prepareDeleteItems(deleteOps);
-    await deleteProducts(
-      params.GOOGLE_CREDS_PATH,
-      params.GOOGLE_MERCHANT_ID,
-      params.GOOGLE_DATA_SOURCE_ID,
-      params.GOOGLE_FEED_LABEL,
-      deleteItems,
-      logger
-    );
-  }
-};
-
+const { checkMissingRequestInputs, stringParameters } = require("../utils.js");
+const { processProductEvent } = require("../../processors/aco/products.js");
 /**
  * Main function that processes the incoming event.
  *
@@ -208,7 +60,8 @@ const main = async (params) => {
 
   try {
     const { type, data } = params;
-    const { instanceId: tenantId, items: items } = data;
+    const { instanceId: tenantId, items } = data;
+
     if ([ACO_EVENT_TYPE_PRODUCT, ACO_EVENT_TYPE_PRICE].includes(type)) {
       await processProductEvent(tenantId, items, params, logger);
     } else {

@@ -88,6 +88,31 @@ const getProductUrl = (product, urlTemplate) => {
 };
 
 /**
+ * Transforms price from Commerce product to Google format (micros).
+ *
+ * @param {CommerceProduct} product - The Commerce product object
+ * @returns {{amountMicros: number, currencyCode: string}|null} Google price format or null
+ */
+const transformPrice = (product) => {
+  let amount, currency;
+
+  if (product.price?.final?.amount) {
+    amount = product.price.final.amount.value;
+    currency = product.price.final.amount.currency;
+  } else if (product.priceRange?.minimum?.final?.amount) {
+    amount = product.priceRange.minimum.final.amount.value;
+    currency = product.priceRange.minimum.final.amount.currency;
+  }
+
+  if (amount == null || !currency) return null;
+
+  return {
+    amountMicros: toMicros(amount),
+    currencyCode: currency,
+  };
+};
+
+/**
  * Gets the availability of the product.
  *
  * @param {boolean} inStock - The inStock value
@@ -187,28 +212,88 @@ const mapCondition = (condition) => {
 };
 
 /**
- * Transforms price from Commerce product to Google format (micros).
+ * Categorizes Commerce attributes into Google standard fields and custom attributes.
  *
- * @param {CommerceProduct} product - The Commerce product object
- * @returns {{amountMicros: number, currencyCode: string}|null} Google price format or null
+ * @param {CommerceAttribute[]} attributes - The attributes to process
+ * @returns {{ standard: object, custom: ICustomAttribute[] }} Categorized fields
  */
-const transformPrice = (product) => {
-  let amount, currency;
+const categorizeAttributes = (attributes) => {
+  const standard = {};
+  const custom = [];
 
-  if (product.price?.final?.amount) {
-    amount = product.price.final.amount.value;
-    currency = product.price.final.amount.currency;
-  } else if (product.priceRange?.minimum?.final?.amount) {
-    amount = product.priceRange.minimum.final.amount.value;
-    currency = product.priceRange.minimum.final.amount.currency;
+  for (const attr of attributes) {
+    const value = attr.value;
+    if (!value) continue;
+
+    if (GOOGLE_STANDARD_FIELDS.includes(attr.name)) {
+      if (attr.name === "gtin") {
+        standard.gtins = [value];
+      } else {
+        standard[attr.name] = value;
+      }
+    } else {
+      custom.push({ name: attr.name, value: String(value) });
+    }
   }
 
-  if (amount == null || !currency) return null;
+  return { standard, custom };
+};
 
-  return {
-    amountMicros: toMicros(amount),
-    currencyCode: currency,
+/**
+ * Resolves product identifiers per Google requirements.
+ * Google requires: gtin, mpn+brand, or identifierExists=false
+ *
+ * @param {object} standardFields - Object containing gtins, mpn, brand fields
+ * @param {...CommerceAttribute[]} attributeSources - Attribute arrays to check for manufacturerSku
+ * @returns {{ mpn?: string, identifierExists?: boolean }} Identifier fields to merge
+ */
+const getIdentifiers = (standardFields, ...attributeSources) => {
+  if (standardFields.gtins || standardFields.mpn) {
+    return {};
+  }
+
+  let manufacturerSku = null;
+  for (const attributes of attributeSources) {
+    manufacturerSku = getAttributeValue(attributes, "manufacturerSku");
+    if (manufacturerSku) break;
+  }
+
+  if (standardFields.brand && manufacturerSku) {
+    return { mpn: manufacturerSku };
+  }
+  return { identifierExists: false };
+};
+
+/**
+ * Builds the final IProductInput object.
+ *
+ * @param {string} feedLabel - The feed label
+ * @param {string} language - The content language
+ * @param {string} offerId - The offer/product ID (SKU)
+ * @param {IProductAttributes} productAttributes - The product attributes
+ * @param {ICustomAttribute[]} customAttributes - Custom attributes array
+ * @returns {IProductInput} The complete product input object
+ */
+const buildProductInput = (
+  feedLabel,
+  language,
+  offerId,
+  productAttributes,
+  customAttributes
+) => {
+  /** @type {IProductInput} */
+  const productInput = {
+    contentLanguage: language,
+    feedLabel,
+    offerId,
+    productAttributes,
   };
+
+  if (customAttributes.length > 0) {
+    productInput.customAttributes = customAttributes;
+  }
+
+  return productInput;
 };
 
 /**
@@ -227,10 +312,13 @@ const transformProduct = (feedLabel, product, source, urlTemplate) => {
 
   const price = transformPrice(product);
   if (!price) {
-    throw new Error(`Product ${product.sku} has no price`);
+    throw new Error(`Product ${product.sku} does not have a price`);
   }
 
-  /** @type {IProductAttributes} */
+  const { standard, custom } = categorizeAttributes(attributes);
+  const identifiers = getIdentifiers(standard, attributes);
+  const additionalImages = getAdditionalImageUrls(images);
+
   const productAttributes = {
     title: product.name,
     description: product.description || product.shortDescription,
@@ -240,58 +328,109 @@ const transformProduct = (feedLabel, product, source, urlTemplate) => {
     condition: mapCondition(getAttributeValue(attributes, "condition")),
     shipping: [getShippingInfo(product, country)],
     price,
+    ...standard,
+    ...identifiers,
+    ...(additionalImages.length > 0 && {
+      additionalImageLinks: additionalImages,
+    }),
   };
 
-  /** @type {ICustomAttribute[]} */
-  const customAttributes = [];
-
-  for (const attr of attributes) {
-    const value = attr.value;
-    if (!value) continue;
-
-    if (GOOGLE_STANDARD_FIELDS.includes(attr.name)) {
-      if (attr.name === "gtin") {
-        productAttributes.gtins = [value];
-      } else {
-        productAttributes[attr.name] = value;
-      }
-    } else {
-      customAttributes.push({ name: attr.name, value });
-    }
-  }
-
-  // Google requires: gtin, mpn+brand, or identifierExists=false
-  const hasIdentifiers = productAttributes.gtins || productAttributes.mpn;
-  if (!hasIdentifiers) {
-    const manufacturerSku = getAttributeValue(attributes, "manufacturerSku");
-    if (productAttributes.brand && manufacturerSku) {
-      productAttributes.mpn = manufacturerSku;
-    } else {
-      productAttributes.identifierExists = false;
-    }
-  }
-
-  const additionalImages = getAdditionalImageUrls(images);
-  if (additionalImages.length > 0) {
-    productAttributes.additionalImageLinks = additionalImages;
-  }
-
-  /** @type {IProductInput} */
-  const productInput = {
-    contentLanguage: language,
+  return buildProductInput(
     feedLabel,
-    offerId: product.sku,
+    language,
+    product.sku,
     productAttributes,
-  };
+    custom
+  );
+};
 
-  if (customAttributes.length > 0) {
-    productInput.customAttributes = customAttributes;
+/**
+ * Transforms a variant from a complex product to Google Merchant Center format.
+ * Uses parent product data for shared fields (description, images) and
+ * variant-specific data for unique fields (sku, price).
+ *
+ * The parent SKU is used as itemGroupId to link variants together per GMC requirements.
+ *
+ * @param {string} feedLabel - The feed label for the Google product feed
+ * @param {CommerceProduct} parentProduct - The parent complex product
+ * @param {object} variant - The variant object from the variants query
+ * @param {string[]} variant.selections - Array of selected option IDs
+ * @param {CommerceProduct} variant.product - The variant's product data
+ * @param {CommerceSource} source - The source object containing locale info
+ * @param {string} urlTemplate - Template for product links
+ * @returns {IProductInput} Google SDK ProductInput object
+ * @throws {Error} If variant has no price
+ */
+const transformVariant = (
+  feedLabel,
+  parentProduct,
+  variant,
+  source,
+  urlTemplate
+) => {
+  const [language, country] = source.locale.split("-");
+  const variantProduct = variant.product;
+  const parentAttributes = parentProduct.attributes || [];
+  const variantAttributes = variantProduct.attributes || [];
+
+  // Use variant images if available, otherwise fall back to parent
+  const images =
+    variantProduct.images?.length > 0
+      ? variantProduct.images
+      : parentProduct.images || [];
+
+  const price = transformPrice(variantProduct);
+  if (!price) {
+    throw new Error(`Variant ${variantProduct.sku} does not have a price`);
   }
 
-  return productInput;
+  // Categorize into Google standard fields and custom attributes
+  const parentCategorized = categorizeAttributes(parentAttributes);
+  const variantCategorized = categorizeAttributes(variantAttributes);
+
+  // Merge Google standard attributes from parent and variant
+  const mergedAttributes = {
+    ...parentCategorized.standard,
+    ...variantCategorized.standard,
+  };
+  const identifiers = getIdentifiers(
+    mergedAttributes,
+    variantAttributes,
+    parentAttributes
+  );
+  const additionalImages = getAdditionalImageUrls(images);
+
+  const productAttributes = {
+    title: variantProduct.name || parentProduct.name,
+    description:
+      variantProduct.description ||
+      parentProduct.description ||
+      parentProduct.shortDescription,
+    link: getProductUrl(parentProduct, urlTemplate), // link to the parent product for PDP
+    imageLink: getPrimaryImageUrl(images),
+    availability: getAvailability(variantProduct.inStock),
+    condition: mapCondition(getAttributeValue(variantAttributes, "condition")),
+    shipping: [getShippingInfo(variantProduct, country)],
+    price,
+    itemGroupId: parentProduct.sku,
+    ...mergedAttributes,
+    ...identifiers,
+    ...(additionalImages.length > 0 && {
+      additionalImageLinks: additionalImages,
+    }),
+  };
+
+  return buildProductInput(
+    feedLabel,
+    language,
+    variantProduct.sku,
+    productAttributes,
+    variantCategorized.custom
+  );
 };
 
 module.exports = {
   transformProduct,
+  transformVariant,
   PRODUCT_FIELD_MASKS,
 };

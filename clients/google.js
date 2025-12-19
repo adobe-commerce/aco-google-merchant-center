@@ -96,6 +96,7 @@ const insertProducts = async (
     client.insertProductInput(request)
   );
   const results = await Promise.all(insertPromises);
+  logger.info(`Response from Google: ${JSON.stringify(results)}`);
   const insertedProducts = results.map((result) => result[0]);
 
   logger.info(`Successfully inserted ${insertedProducts.length} products`);
@@ -145,6 +146,7 @@ const updateProducts = async (
     client.updateProductInput(request)
   );
   const results = await Promise.all(updatePromises);
+  logger.info(`Response from Google: ${JSON.stringify(results)}`);
   const updatedProducts = results.map((result) => result[0]);
 
   logger.info(`Successfully updated ${updatedProducts.length} products`);

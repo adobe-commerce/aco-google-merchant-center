@@ -18,7 +18,6 @@ test("interface", () => {
   expect(typeof utils.getBearerToken).toBe("function");
   expect(typeof utils.chunk).toBe("function");
   expect(typeof utils.groupByOperation).toBe("function");
-  expect(typeof utils.groupBySourceLocale).toBe("function");
 });
 
 describe("stringParameters", () => {
@@ -216,32 +215,5 @@ describe("groupByOperation", () => {
       update: [],
       delete: [],
     });
-  });
-});
-
-describe("groupBySourceLocale", () => {
-  test("groups items by source locale", () => {
-    const items = [
-      { sku: "a", sources: [{ locale: "en-US" }] },
-      { sku: "b", sources: [{ locale: "en-US" }] },
-      { sku: "c", sources: [{ locale: "fr-FR" }] },
-    ];
-    const result = utils.groupBySourceLocale(items);
-    expect(Object.keys(result)).toEqual(["en-US", "fr-FR"]);
-    expect(result["en-US"].items).toHaveLength(2);
-    expect(result["fr-FR"].items).toHaveLength(1);
-  });
-
-  test("handles item with multiple sources", () => {
-    const items = [
-      { sku: "a", sources: [{ locale: "en-US" }, { locale: "fr-FR" }] },
-    ];
-    const result = utils.groupBySourceLocale(items);
-    expect(result["en-US"].items).toHaveLength(1);
-    expect(result["fr-FR"].items).toHaveLength(1);
-  });
-
-  test("handles empty array", () => {
-    expect(utils.groupBySourceLocale([])).toEqual({});
   });
 });

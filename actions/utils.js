@@ -156,30 +156,10 @@ function groupByOperation(items) {
   );
 }
 
-/**
- * Groups items by their source locale.
- *
- * @param {object[]} items - Items with sources array containing locale
- * @returns {Object<string, {source: object, items: object[]}>} Items grouped by locale
- */
-function groupBySourceLocale(items) {
-  return items.reduce((acc, item) => {
-    for (const source of item.sources) {
-      const key = source.locale;
-      if (!acc[key]) {
-        acc[key] = { source, items: [] };
-      }
-      acc[key].items.push(item);
-    }
-    return acc;
-  }, {});
-}
-
 module.exports = {
   checkMissingRequestInputs,
   chunk,
   getBearerToken,
   groupByOperation,
-  groupBySourceLocale,
   stringParameters,
 };

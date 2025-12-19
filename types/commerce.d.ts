@@ -81,9 +81,34 @@ export interface CommerceSimpleProduct extends CommerceProductBase {
   price: CommercePrice;
 }
 
+export interface CommerceOptionValue {
+  id: string;
+  title: string;
+  inStock: boolean;
+}
+
+export interface CommerceOption {
+  id: string;
+  title: string;
+  required: boolean;
+  multi: boolean;
+  values: CommerceOptionValue[];
+}
+
 export interface CommerceComplexProduct extends CommerceProductBase {
   __typename: "ComplexProductView";
   priceRange: CommercePriceRange;
+  options?: CommerceOption[];
 }
 
 export type CommerceProduct = CommerceSimpleProduct | CommerceComplexProduct;
+
+/**
+ * Variant returned by the variants query
+ */
+export interface CommerceVariant {
+  /** Array of selected option IDs (e.g., ["condition-NEW"]) */
+  selections: string[];
+  /** The variant's product data */
+  product: CommerceSimpleProduct;
+}

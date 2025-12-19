@@ -16,6 +16,7 @@ Some fields required by Google Merchant Center are not readily available in Comm
 The following functions need to be customized:
 
 - `getProductUrl`: A basic function is provided to use the `sku` field from the Commerce Optimizer product and map to the template provided in the `STORE_URL_TEMPLATE` environment variable (ie. `https://mystore.com/products/{sku}`). Customize this function to correctly construct your canonical product URLs so Google can correctly index your PDPs.
+- `transformPrice`: A basic function is provided to retrieve the price returned from the Commerce Optimizer API. Customize this function if you have custom price functionality on top of the price returned by Commerce Optimizer.
 - `getAvailability`: A basic function is provided to map the `inStock` attribute of the Commerce Optimizer product to the Google Product Availability enum. Customize this function to correctly pull product availability from your inventory management system.
 - `getShippingInfo`: A basic function is provided to map `shippingMethod`, `shippingPrice` and `shippingCurrency` (if present as customer attributes) from the Commerce Optimizer product to the Google Product Input's required `shipping` field. Customize this function to pull shipping information as required.
 
