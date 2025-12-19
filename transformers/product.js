@@ -42,11 +42,6 @@ const GOOGLE_STANDARD_FIELDS = [
   "itemGroupId",
 ];
 
-/**
- * Field mask paths for product updates.
- * These correspond to all fields set by transformProduct().
- * Uses snake_case as required by the Google API.
- */
 const PRODUCT_FIELD_MASKS = [
   "product_attributes.title",
   "product_attributes.description",
@@ -93,12 +88,12 @@ const getProductUrl = (product, urlTemplate) => {
 };
 
 /**
- * Maps inStock boolean to Google Availability enum.
+ * Gets the availability of the product.
  *
  * @param {boolean} inStock - The inStock value
  * @returns {number} Google Availability enum value
  */
-const mapAvailability = (inStock) => {
+const getAvailability = (inStock) => {
   return inStock ? Availability.IN_STOCK : Availability.OUT_OF_STOCK;
 };
 
@@ -241,7 +236,7 @@ const transformProduct = (feedLabel, product, source, urlTemplate) => {
     description: product.description || product.shortDescription,
     link: getProductUrl(product, urlTemplate),
     imageLink: getPrimaryImageUrl(images),
-    availability: mapAvailability(product.inStock),
+    availability: getAvailability(product.inStock),
     condition: mapCondition(getAttributeValue(attributes, "condition")),
     shipping: [getShippingInfo(product, country)],
     price,

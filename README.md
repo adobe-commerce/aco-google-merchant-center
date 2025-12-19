@@ -1,43 +1,165 @@
 # ACO -> Google Merchant Center
 
-Welcome to my Adobe I/O Application!
+> [!IMPORTANT]
+> Customization is needed to correctly map fields from Commerce Optimizer to the Google Product Input.
+> See the Customization section below.
 
-## Setup
+## Supported Catalog Events
 
-- Populate the `.env` file in the project root and fill it as shown [below](#env)
+- Commerce Optimizer Product Update: `com.adobe.commerce.storefront.events.product.aco`
+- Commerce Optimizer Price Update: `com.adobe.commerce.storefront.events.price.aco`
+
+## Customization
+
+Some fields required by Google Merchant Center are not readily available in Commerce Optimizer. This application provides a product transformer `transformers/product.js` which contains functions to perform mapping from a Commerce Optimizer product to the Google Product Input format, but will likely require customizations to retrieve and construct these values correctly.
+
+The following functions need to be customized:
+
+- `getProductUrl`: A basic function is provided to use the `sku` field from the Commerce Optimizer product and map to the template provided in the `STORE_URL_TEMPLATE` environment variable (ie. `https://mystore.com/products/{sku}`). Customize this function to correctly construct your canonical product URLs so Google can correctly index your PDPs.
+- `getAvailability`: A basic function is provided to map the `inStock` attribute of the Commerce Optimizer product to the Google Product Availability enum. Customize this function to correctly pull product availability from your inventory management system.
+- `getShippingInfo`: A basic function is provided to map `shippingMethod`, `shippingPrice` and `shippingCurrency` (if present as customer attributes) from the Commerce Optimizer product to the Google Product Input's required `shipping` field. Customize this function to pull shipping information as required.
+
+## App Builder
+
+This application runs on top of [App Builder](https://developer.adobe.com/app-builder/docs/intro_and_overview/).
+
+Also see
+[App Builder Architecture](https://developer.adobe.com/app-builder/docs/guides/app_builder_guides/architecture_overview/architecture-overview).
+
+### Getting Started with App Builder
+
+See
+[App Builder Getting Started](https://developer.adobe.com/app-builder/docs/get_started/app_builder_get_started/app-builder-intro)
+documentation.
+
+## Installation
+
+Follow the steps below to install and configure the Google Merchant Center synchronization application.
+
+### Prerequisites
+
+#### Install the AIO CLI
+
+Run the following command to install the [AIO CLI](https://developer.adobe.com/runtime/docs/guides/tools/cli_install/).
+
+```sh
+npm install -g @adobe/aio-cli
+```
+
+#### Clone the Required Repositories
+
+1. Clone this repository: `git clone git@github.com:adobe-commerce/aco-google-merchant-center.git`.
+
+#### Create App Builder Project
+
+1. Log in to the [Developer Console](https://developer.adobe.com/console).
+   1. Click on **Create project from template**.
+   2. Select **App Builder**.
+   3. Give your project a name and a title.
+   4. Click **Save**.
+2. Select the **Stage** workspace.
+3. Add the required API services to your new App Builder project.
+   1. Click the **Add service** button.
+   2. In the dropdown, select **API**.
+   3. Select the **Adobe Commerce Optimizer Admin** card.
+   4. Click **Next**.
+   5. Click **Next**.
+   6. Select the checkbox next to the **Default - Cloud Manager** profile.
+   7. Click **Save configured API**
+   8. Repeat the above steps for the following APIs to add them to your credential:
+      1. I/O Events
+      2. I/O Management API
+4. Subscribe to the Commerce Catalog Events
+   1. Click the **Add service** button.
+   2. In the dropdown, select **Event**.
+   3. Select the **Commerce Catalog Events** card.
+   4. Click **Next**.
+   5. Select the **Instance ID** you wish to subscribe to. This will be your Commerce Tenant ID.
+   6. Click **Next**.
+   7. Choose which events to subscribe to. Select **Product Update** and **Price Update**.
+   8. Click **Next**.
+   9. Select the OAuth Server-to-Server credential to add this event registration to.
+   10. Click **Next**.
+   11. Give the event registration a name.
+   12. Click **Next**.
+   13. Click **Save configured events**.
+5. Click the **Download all** button in the top right of the Developer Console to download the **Workspace JSON file**
+   and save it locally (do not commit to source control). This file will be used to configure
+   the Adobe authorization environment variables via the `aio app use --merge` CLI command.
+
+### Deploy and Onboard the App Builder Application
+
+1. Copy the `env.example` to a new `.env` file.
+2. Run the following commands to connect your starter kit with the App Builder project configured above.
+
+   ```sh
+   aio login
+   aio console org select
+   # Search for and select the organization that your Developer Console project belongs to.
+   aio console project select
+   # Search for and select the Developer Console project created above.
+   aio console workspace select
+   # Search for and select the desired workspace (ie. Stage).
+   aio app use --merge
+   # Confirm the highlighted project matches the one configured above.
+   # This command will update your .env file with AIO related environment variables.
+   ```
+
+#### Configure the .env file
+
+1. Google Merchant Center configuration
+   1. **GOOGLE_MERCHANT_ID**: Your Google Merchant Center unique identifier.
+   2. **GOOGLE_DATA_SOURCE_ID**: The unique identifier for your Google Merchant Center product feed.
+   3. **GOOGLE_FEED_LABEL**: The label for your Google Merchant Center product feed (ie. `CARVELO_PRODUCT_FEED`).
+   4. **GOOGLE_CREDS_PATH**: The path where your Google API credentials file is stored (ie. `/Users/app/aco-google-merchant-center/google-creds.json`).
+2. Storefront configuration
+   1. **STORE_BASE_URL**: The base URL of your storefront (ie. `https://mystore.com`).
+   2. **STORE_URL_TEMPLATE**: The template format of your storefront product links (ie. `https://mystore.com/products/{sku}`). _Note:_ This value depends on how your canonical product links are composed and the customization of the `transformers/product.js::getProductUrl` function.
+3. Commerce Optimizer configuration
+   1. **ACO_API_BASE_URL**: The base URL of the Commerce Optimizer API (ie. `https://na1-sandbox.api.commerce.adobe.com`).
+   2. **ACO_VIEW_ID**: The identifier of the Catalog View to synchronize with Google Product Feed.
+   3. **ACO_PRICE_BOOK_ID**: The identifier of the Price Book to retrieve prices from for the Google Product Input `price` field.
+
+#### Install Dependencies
+
+Run the following command:
+
+```sh
+npm install
+```
+
+#### Deploy the Application
+
+Run the following command to deploy your app to your Developer Console project:
+
+```sh
+aio app deploy
+```
+
+> [!TIP]
+> Run the `aio app deploy` command with `--force-build --force-deploy` flags to force a clean build.
+
+#### Register Your Starter Kit Actions
+
+Complete the event registration process in your Dev Console project.
 
 ## Local Dev
 
-- `aio app run` to start your local Dev server
-- App will run on `localhost:9080` by default
+To run your actions locally use the `aio app dev` option. The app will run on `localhost:9080` by default.
 
-By default the UI will be served locally but actions will be deployed and served from Adobe I/O Runtime. To run your actions locally use the `aio app dev` option.
-
-For more information on the difference between `aio app run` and `aio app dev`, see [here](https://developer.adobe.com/app-builder/docs/guides/development/#aio-app-dev-vs-aio-app-run)
+For more information about the local development, see [here](https://developer.adobe.com/app-builder/docs/guides/development).
 
 ## Test & Coverage
 
-- Run `aio app test` to run unit tests for ui and actions
-- Run `aio app test --e2e` to run e2e tests
+- Run `aio app test` to run unit tests for ui and actions.
+- Run `aio app test --e2e` to run e2e tests.
 
 ## Deploy & Cleanup
 
-- `aio app deploy` to build and deploy all actions on Runtime and static files to CDN
-- `aio app undeploy` to undeploy the app
+- `aio app deploy` to build and deploy all actions on Runtime and static files to CDN.
+- `aio app undeploy` to undeploy the app.
 
-## Config
-
-### `.env`
-
-You can generate this file using the command `aio app use`.
-
-```bash
-# This file must **not** be committed to source control
-
-## please provide your Adobe I/O Runtime credentials
-# AIO_RUNTIME_AUTH=
-# AIO_RUNTIME_NAMESPACE=
-```
+## Action Configuration
 
 ### `app.config.yaml`
 
