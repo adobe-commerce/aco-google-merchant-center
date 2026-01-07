@@ -55,3 +55,18 @@ export interface FeedConfig {
   googleTargetCountry: string;
   storeUrlTemplate: string;
 }
+
+/**
+ * Attribute mapping configuration for Google Merchant Center.
+ * Maps Google expected fields/values to custom Commerce attribute names/values.
+ */
+export interface AttributeMappingConfig {
+  /** Maps Google field names to custom attribute names */
+  fieldMappings: Record<string, string>;
+  /** Maps Google expected values to custom values for enum fields */
+  valueMappings: {
+    condition: Record<string, string>;
+    gender: Record<string, string>;
+    ageGroup: Record<string, string>;
+  };
+}

@@ -15,7 +15,7 @@ Some fields required by Google Merchant Center are not readily available in Comm
 
 The following functions need to be customized:
 
-- `getProductUrl`: A basic function is provided to use the `sku` field from the Commerce Optimizer product and map to the template provided in the `STORE_URL_TEMPLATE` environment variable (ie. `https://mystore.com/products/{sku}`). Customize this function to correctly construct your canonical product URLs so Google can correctly index your PDPs.
+- `getProductUrl`: A basic function is provided to use the `sku` field from the Commerce Optimizer product and map to the template provided in the `store.urlTemplate` market configuration variable (ie. `https://mystore.com/products/{sku}`). Customize this function to correctly construct your canonical product URLs so Google can correctly index your PDPs.
 - `transformPrice`: A basic function is provided to retrieve the price returned from the Commerce Optimizer API. Customize this function if you have custom price functionality on top of the price returned by Commerce Optimizer.
 - `getAvailability`: A basic function is provided to map the `inStock` attribute of the Commerce Optimizer product to the Google Product Availability enum. Customize this function to correctly pull product availability from your inventory management system.
 - `getShippingInfo`: A basic function is provided to map `shippingMethod`, `shippingPrice` and `shippingCurrency` (if present as customer attributes) from the Commerce Optimizer product to the Google Product Input's required `shipping` field. Customize this function to pull shipping information as required.
@@ -108,22 +108,19 @@ npm install -g @adobe/aio-cli
 
 #### Configure the .env file
 
-1. Google Merchant Center configuration
-   1. **GOOGLE_MERCHANT_ID**: Your Google Merchant Center unique identifier.
-   2. **GOOGLE_DATA_SOURCE_ID**: The unique identifier for your Google Merchant Center product feed.
-   3. **GOOGLE_FEED_LABEL**: The label for your Google Merchant Center product feed (ie. `CARVELO_PRODUCT_FEED`).
-   4. **GOOGLE_CREDS_PATH**: The path where your Google API credentials file is stored (ie. `/Users/app/aco-google-merchant-center/google-creds.json`).
-2. Storefront configuration
-   1. **STORE_BASE_URL**: The base URL of your storefront (ie. `https://mystore.com`).
-   2. **STORE_URL_TEMPLATE**: The template format of your storefront product links (ie. `https://mystore.com/products/{sku}`). _Note:_ This value depends on how your canonical product links are composed and the customization of the `transformers/product.js::getProductUrl` function.
-3. Commerce Optimizer configuration
+1. Google Merchant Center credentials
+   1. **GOOGLE_CREDS_PATH**: The path where your Google API credentials file is stored (ie. `/Users/app/aco-google-merchant-center/google-creds.json`).
+2. Commerce Optimizer configuration
    1. **ACO_API_BASE_URL**: The base URL of the Commerce Optimizer API (ie. `https://na1-sandbox.api.commerce.adobe.com`).
-   2. **ACO_VIEW_ID**: The identifier of the Catalog View to synchronize with Google Product Feed.
-   3. **ACO_PRICE_BOOK_ID**: The identifier of the Price Book to retrieve prices from for the Google Product Input `price` field.
+   2. **ACO_TENANT_ID**: The Commerce Optimizer tenant identifier to synchronize with Google Product Feed.
 
 #### Configure Target Markets
 
-See [./config/README.md] for more information.
+Complete the required configuration for mapping Commerce data to Google country/language markets by following the instructions in the [./config/markets/README.md](./config/markets/README.md) documentation.
+
+#### Configure Attribute Mapping
+
+Complete the required configuration for mapping Commerce custom attributes to Google required fields by following the instructions in the [./config/attributeMapping/README.md](./config/attributeMapping/README.md) documentation.
 
 #### Install Dependencies
 

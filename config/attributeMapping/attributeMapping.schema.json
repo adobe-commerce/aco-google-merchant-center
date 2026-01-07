@@ -1,0 +1,71 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "required": ["fieldMappings", "valueMappings"],
+  "properties": {
+    "fieldMappings": {
+      "type": "object",
+      "description": "Maps Google field names to Commerce attribute names. Format: { googleField: commerceAttributeName }",
+      "propertyNames": {
+        "enum": [
+          "gtin",
+          "mpn",
+          "brand",
+          "condition",
+          "color",
+          "size",
+          "gender",
+          "ageGroup",
+          "material",
+          "pattern",
+          "googleProductCategory"
+        ]
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "valueMappings": {
+      "type": "object",
+      "description": "Maps Google expected values to Commerce values for enum fields",
+      "properties": {
+        "condition": {
+          "type": "object",
+          "description": "Maps Google condition values to Commerce values",
+          "propertyNames": {
+            "enum": ["new", "used", "refurbished"]
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "gender": {
+          "type": "object",
+          "description": "Maps Google gender values to Commerce values",
+          "propertyNames": {
+            "enum": ["male", "female", "unisex"]
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "ageGroup": {
+          "type": "object",
+          "description": "Maps Google ageGroup values to Commerce values",
+          "propertyNames": {
+            "enum": ["newborn", "infant", "toddler", "kids", "adult"]
+          },
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

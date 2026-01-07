@@ -252,7 +252,7 @@ See [Supported languages and currencies](https://support.google.com/merchants/an
 
 ## Validation
 
-The configuration is validated on application startup against `markets.schema.json`. Validation includes:
+The configuration is validated against `markets.schema.json`. Validation includes:
 
 - Required fields presence
 - Correct data types

@@ -13,18 +13,29 @@
 /**
  * @typedef {import('../types/config').MarketConfig} MarketConfig
  * @typedef {import('../types/config').MarketsConfig} MarketsConfig
+ * @typedef {import('../types/config').AttributeMappingConfig} AttributeMappingConfig
  */
 
 const Ajv = require("ajv");
 
-const schema = require("../config/markets.schema.json");
+const marketSchema = require("../config/markets/markets.schema.json");
+const attributeMappingSchema = require("../config/attributeMapping/attributeMapping.schema.json");
 
-let config;
+let marketConfig;
 try {
-  config = require("../config/markets.json");
+  marketConfig = require("../config/markets/markets.json");
 } catch (e) {
   throw new Error(
-    "Market configuration file not found. Please create config/markets.json from config/markets.example.json"
+    "Market configuration file not found. Please create config/markets/markets.json from config/markets/markets.example.json"
+  );
+}
+
+let attributeMappingConfig;
+try {
+  attributeMappingConfig = require("../config/attributeMapping/attributeMapping.json");
+} catch (e) {
+  throw new Error(
+    "Attribute mapping configuration file not found. Please create config/attributeMapping/attributeMapping.json from config/attributeMapping/attributeMapping.example.json"
   );
 }
 
@@ -36,16 +47,36 @@ try {
  */
 const loadMarketConfig = () => {
   const ajv = new Ajv({ allErrors: true });
-  const validate = ajv.compile(schema);
+  const validate = ajv.compile(marketSchema);
 
-  if (!validate(config)) {
+  if (!validate(marketConfig)) {
     const errors = validate.errors
       .map((err) => `${err.instancePath} ${err.message}`)
       .join("; ");
     throw new Error(`Invalid market config: ${errors}`);
   }
 
-  return config;
+  return marketConfig;
+};
+
+/**
+ * Loads and validates attribute mapping configuration.
+ *
+ * @returns {AttributeMappingConfig} The validated attribute mapping config
+ * @throws {Error} If validation fails
+ */
+const loadAttributeMappingConfig = () => {
+  const ajv = new Ajv({ allErrors: true });
+  const validate = ajv.compile(attributeMappingSchema);
+
+  if (!validate(attributeMappingConfig)) {
+    const errors = validate.errors
+      .map((err) => `${err.instancePath} ${err.message}`)
+      .join("; ");
+    throw new Error(`Invalid attribute mapping config: ${errors}`);
+  }
+
+  return attributeMappingConfig;
 };
 
 /**
@@ -71,5 +102,6 @@ const buildLocaleIndex = (markets) => {
 
 module.exports = {
   loadMarketConfig,
+  loadAttributeMappingConfig,
   buildLocaleIndex,
 };

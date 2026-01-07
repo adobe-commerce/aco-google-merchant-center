@@ -23,9 +23,13 @@
  */
 
 const { protos } = require("@google-shopping/products");
+const { loadAttributeMappingConfig } = require("../actions/config");
 
 const Availability = protos.google.shopping.merchant.products.v1.Availability;
 const Condition = protos.google.shopping.merchant.products.v1.Condition;
+
+// Load attribute mapping config once at module initialization
+const attributeMapping = loadAttributeMappingConfig();
 
 const GOOGLE_STANDARD_FIELDS = [
   "gtin",
@@ -197,6 +201,53 @@ const getAdditionalImageUrls = (images) => {
 };
 
 /**
+ * Finds the Google field name for a custom attribute name using field mappings.
+ * Config format: { googleField: customAttr }
+ *
+ * @param {string} customAttrName - The custom attribute name
+ * @returns {string} The Google field name, or the original name if no mapping exists
+ */
+const getGoogleFieldName = (customAttrName) => {
+  const { fieldMappings } = attributeMapping;
+  const entry = Object.entries(fieldMappings).find(
+    ([, customAttr]) => customAttr === customAttrName
+  );
+  return entry ? entry[0] : customAttrName;
+};
+
+/**
+ * Finds the custom attribute name for a Google field using field mappings.
+ * Config format: { googleField: customAttr }
+ *
+ * @param {string} googleField - The Google field name
+ * @returns {string} The custom attribute name, or the Google field name if no mapping exists
+ */
+const getCustomAttrName = (googleField) => {
+  const { fieldMappings } = attributeMapping;
+  return fieldMappings[googleField] || googleField;
+};
+
+/**
+ * Maps a custom attribute value to a Google value using value mappings.
+ * Config format: { googleValue: customValue }
+ * Falls back to the original value (lowercased) if no mapping exists.
+ *
+ * @param {string|null} customValue - The custom attribute value
+ * @param {string} field - The Google field name (e.g., "condition", "gender")
+ * @returns {string|null} The mapped Google value or original value
+ */
+const mapEnumValue = (customValue, field) => {
+  if (!customValue) return null;
+  const { valueMappings } = attributeMapping;
+  const fieldValueMap = valueMappings?.[field] || {};
+  // Find which Google value maps to this custom value
+  const entry = Object.entries(fieldValueMap).find(
+    ([, mappedCustomValue]) => mappedCustomValue === customValue
+  );
+  return entry ? entry[0] : customValue.toLowerCase();
+};
+
+/**
  * Maps condition string to Google Condition enum.
  *
  * @param {string|null} condition - The condition string
@@ -213,6 +264,7 @@ const mapCondition = (condition) => {
 
 /**
  * Categorizes Commerce attributes into Google standard fields and custom attributes.
+ * Uses field mappings to translate custom attribute names to Google field names.
  *
  * @param {CommerceAttribute[]} attributes - The attributes to process
  * @returns {{ standard: object, custom: ICustomAttribute[] }} Categorized fields
@@ -225,11 +277,17 @@ const categorizeAttributes = (attributes) => {
     const value = attr.value;
     if (!value) continue;
 
-    if (GOOGLE_STANDARD_FIELDS.includes(attr.name)) {
-      if (attr.name === "gtin") {
+    // Check if this custom attribute maps to a Google field
+    const googleField = getGoogleFieldName(attr.name);
+
+    if (GOOGLE_STANDARD_FIELDS.includes(googleField)) {
+      if (googleField === "gtin") {
         standard.gtins = [value];
+      } else if (["condition", "gender", "ageGroup"].includes(googleField)) {
+        // Apply value mapping for enum fields
+        standard[googleField] = mapEnumValue(value, googleField);
       } else {
-        standard[attr.name] = value;
+        standard[googleField] = value;
       }
     } else {
       custom.push({ name: attr.name, value: String(value) });
@@ -298,7 +356,6 @@ const buildProductInput = (
 
 /**
  * Transforms a Commerce product to Google Merchant Center IProductInput format.
-
  *
  * @param {string} feedLabel - The feed label for the Google product feed
  * @param {CommerceProduct} product - The Commerce product object
@@ -325,6 +382,9 @@ const transformProduct = (
   const { standard, custom } = categorizeAttributes(attributes);
   const identifiers = getIdentifiers(standard, attributes);
   const additionalImages = getAdditionalImageUrls(images);
+  const conditionAttrName = getCustomAttrName("condition");
+  const rawCondition = getAttributeValue(attributes, conditionAttrName);
+  const mappedCondition = mapEnumValue(rawCondition, "condition");
 
   const productAttributes = {
     title: product.name,
@@ -332,7 +392,7 @@ const transformProduct = (
     link: getProductUrl(product, urlTemplate),
     imageLink: getPrimaryImageUrl(images),
     availability: getAvailability(product.inStock),
-    condition: mapCondition(getAttributeValue(attributes, "condition")),
+    condition: mapCondition(mappedCondition),
     shipping: [getShippingInfo(product, country)],
     price,
     ...standard,
@@ -407,6 +467,9 @@ const transformVariant = (
     parentAttributes
   );
   const additionalImages = getAdditionalImageUrls(images);
+  const conditionAttrName = getCustomAttrName("condition");
+  const rawCondition = getAttributeValue(variantAttributes, conditionAttrName);
+  const mappedCondition = mapEnumValue(rawCondition, "condition");
 
   const productAttributes = {
     title: variantProduct.name || parentProduct.name,
@@ -417,7 +480,7 @@ const transformVariant = (
     link: getProductUrl(parentProduct, urlTemplate), // link to the parent product for PDP
     imageLink: getPrimaryImageUrl(images),
     availability: getAvailability(variantProduct.inStock),
-    condition: mapCondition(getAttributeValue(variantAttributes, "condition")),
+    condition: mapCondition(mappedCondition),
     shipping: [getShippingInfo(variantProduct, country)],
     price,
     itemGroupId: parentProduct.sku,
