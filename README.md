@@ -121,6 +121,10 @@ npm install -g @adobe/aio-cli
    2. **ACO_VIEW_ID**: The identifier of the Catalog View to synchronize with Google Product Feed.
    3. **ACO_PRICE_BOOK_ID**: The identifier of the Price Book to retrieve prices from for the Google Product Input `price` field.
 
+#### Configure Target Markets
+
+See [./config/README.md] for more information.
+
 #### Install Dependencies
 
 Run the following command:

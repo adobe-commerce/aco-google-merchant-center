@@ -1,5 +1,5 @@
 /*
-  Copyright 2025 Adobe. All rights reserved.
+  Copyright 2026 Adobe. All rights reserved.
   This file is licensed to you under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License. You may obtain a copy
   of the License at http://www.apache.org/licenses/LICENSE-2.0
@@ -96,7 +96,7 @@ const insertProducts = async (
     client.insertProductInput(request)
   );
   const results = await Promise.all(insertPromises);
-  logger.info(`Response from Google: ${JSON.stringify(results)}`);
+  logger.debug(`Response from Google: ${JSON.stringify(results)}`);
   const insertedProducts = results.map((result) => result[0]);
 
   logger.info(`Successfully inserted ${insertedProducts.length} products`);
@@ -146,7 +146,7 @@ const updateProducts = async (
     client.updateProductInput(request)
   );
   const results = await Promise.all(updatePromises);
-  logger.info(`Response from Google: ${JSON.stringify(results)}`);
+  logger.debug(`Response from Google: ${JSON.stringify(results)}`);
   const updatedProducts = results.map((result) => result[0]);
 
   logger.info(`Successfully updated ${updatedProducts.length} products`);
@@ -160,7 +160,8 @@ const updateProducts = async (
  * @param {string} merchantId - The Merchant Center account ID
  * @param {string} dataSourceId - The data source ID
  * @param {string} feedLabel - The feed label for the products
- * @param {Array<{sku: string, source: object}>} items - Array of items to delete with sku and source
+ * @param {string} language - ISO 639-1 content language code
+ * @param {string[]} skus - Array of product SKUs to delete
  * @param {Logger} logger - The logger to use
  * @returns {Promise<void>}
  */
@@ -169,10 +170,11 @@ const deleteProducts = async (
   merchantId,
   dataSourceId,
   feedLabel,
-  items,
+  language,
+  skus,
   logger
 ) => {
-  if (items.length === 0) return;
+  if (skus.length === 0) return;
 
   const config = getConfig(credsPath, merchantId);
   const authClient = await getCredentials(config.serviceAccountFile);
@@ -180,8 +182,7 @@ const deleteProducts = async (
   const client = new ProductInputsServiceClient({ authClient });
   const dataSource = `accounts/${merchantId}/dataSources/${dataSourceId}`;
 
-  const requests = items.map(({ sku, source }) => {
-    const language = source.locale.split("-")[0];
+  const requests = skus.map((sku) => {
     const productId = `${language}~${feedLabel}~${sku}`;
     return {
       name: `accounts/${merchantId}/productInputs/${productId}`,
@@ -196,7 +197,7 @@ const deleteProducts = async (
   );
   await Promise.all(deletePromises);
 
-  logger.info(`Successfully deleted ${items.length} products`);
+  logger.info(`Successfully deleted ${skus.length} products`);
 };
 
 module.exports = {

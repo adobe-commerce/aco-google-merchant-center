@@ -1,5 +1,5 @@
 /*
-  Copyright 2025 Adobe. All rights reserved.
+  Copyright 2026 Adobe. All rights reserved.
   This file is licensed to you under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License. You may obtain a copy
   of the License at http://www.apache.org/licenses/LICENSE-2.0
@@ -298,16 +298,23 @@ const buildProductInput = (
 
 /**
  * Transforms a Commerce product to Google Merchant Center IProductInput format.
+
  *
  * @param {string} feedLabel - The feed label for the Google product feed
  * @param {CommerceProduct} product - The Commerce product object
- * @param {CommerceSource} source - The source object containing locale info
+ * @param {string} language - ISO 639-1 content language code (e.g., "en")
+ * @param {string} country - ISO 3166-1 alpha-2 target country code (e.g., "US")
  * @param {string} urlTemplate - Template for product links
  * @returns {IProductInput} Google SDK ProductInput object
  * @throws {Error} If product has no price (required by Google)
  */
-const transformProduct = (feedLabel, product, source, urlTemplate) => {
-  const [language, country] = source.locale.split("-");
+const transformProduct = (
+  feedLabel,
+  product,
+  language,
+  country,
+  urlTemplate
+) => {
   const { attributes = [], images = [] } = product;
 
   const price = transformPrice(product);
@@ -356,7 +363,8 @@ const transformProduct = (feedLabel, product, source, urlTemplate) => {
  * @param {object} variant - The variant object from the variants query
  * @param {string[]} variant.selections - Array of selected option IDs
  * @param {CommerceProduct} variant.product - The variant's product data
- * @param {CommerceSource} source - The source object containing locale info
+ * @param {string} language - ISO 639-1 content language code (e.g., "en")
+ * @param {string} country - ISO 3166-1 alpha-2 target country code (e.g., "US")
  * @param {string} urlTemplate - Template for product links
  * @returns {IProductInput} Google SDK ProductInput object
  * @throws {Error} If variant has no price
@@ -365,10 +373,10 @@ const transformVariant = (
   feedLabel,
   parentProduct,
   variant,
-  source,
+  language,
+  country,
   urlTemplate
 ) => {
-  const [language, country] = source.locale.split("-");
   const variantProduct = variant.product;
   const parentAttributes = parentProduct.attributes || [];
   const variantAttributes = variantProduct.attributes || [];

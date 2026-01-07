@@ -1,0 +1,42 @@
+[
+  {
+    "id": "us",
+    "aco": {
+      "viewId": "us-catalog-view",
+      "priceBookId": "usd-prices",
+      "source": {
+        "locale": "en-US"
+      }
+    },
+    "google": {
+      "merchantId": "123456789",
+      "dataSourceId": "1234567890",
+      "feedLabel": "US_PRODUCTS",
+      "contentLanguage": "en",
+      "targetCountry": "US"
+    },
+    "store": {
+      "urlTemplate": "https://mystore.com/products/{urlKey}"
+    }
+  },
+  {
+    "id": "uk",
+    "aco": {
+      "viewId": "uk-catalog-view",
+      "priceBookId": "gbp-prices",
+      "source": {
+        "locale": "en-GB"
+      }
+    },
+    "google": {
+      "merchantId": "123456789",
+      "dataSourceId": "0987654321",
+      "feedLabel": "UK_PRODUCTS",
+      "contentLanguage": "en",
+      "targetCountry": "GB"
+    },
+    "store": {
+      "urlTemplate": "https://mystore.co.uk/products/{urlKey}"
+    }
+  }
+]

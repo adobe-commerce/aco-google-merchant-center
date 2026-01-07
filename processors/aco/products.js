@@ -1,5 +1,5 @@
 /*
-  Copyright 2025 Adobe. All rights reserved.
+  Copyright 2026 Adobe. All rights reserved.
   This file is licensed to you under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License. You may obtain a copy
   of the License at http://www.apache.org/licenses/LICENSE-2.0
@@ -193,14 +193,18 @@ const fetchSimpleProducts = async (
  * Transforms complex variant product structures for Google Merchant Center
  *
  * @param {string} googleFeedLabel - The Google feed label
+ * @param {string} language - ISO 639-1 content language code
+ * @param {string} country - ISO 3166-1 alpha-2 target country code
  * @param {string} storeUrlTemplate - The store URL template
- * @param {object[]} items - Items with sku and sources
+ * @param {object[]} variantItems - Items with sku
  * @param {Map<string, {parentProduct: object, variant: object}>} variantDataMap - Variant data
  * @param {Logger} logger - The logger to use
  * @returns {IProductInput[]} Array of transformed Google product inputs
  */
 const transformVariantItems = (
   googleFeedLabel,
+  language,
+  country,
   storeUrlTemplate,
   variantItems,
   variantDataMap,
@@ -216,21 +220,18 @@ const transformVariantItems = (
       continue;
     }
 
-    for (const source of item.sources) {
-      try {
-        const product = transformVariant(
-          googleFeedLabel,
-          data.parentProduct,
-          data.variant,
-          source,
-          storeUrlTemplate
-        );
-        transformed.push(product);
-      } catch (error) {
-        logger.error(
-          `Failed to transform variant ${item.sku}: ${error.message}`
-        );
-      }
+    try {
+      const product = transformVariant(
+        googleFeedLabel,
+        data.parentProduct,
+        data.variant,
+        language,
+        country,
+        storeUrlTemplate
+      );
+      transformed.push(product);
+    } catch (error) {
+      logger.error(`Failed to transform variant ${item.sku}: ${error.message}`);
     }
   }
   return transformed;
@@ -240,6 +241,8 @@ const transformVariantItems = (
  * Transforms simple product structures for Google Merchant Center.
  *
  * @param {string} googleFeedLabel - The Google feed label
+ * @param {string} language - ISO 639-1 content language code
+ * @param {string} country - ISO 3166-1 alpha-2 target country code
  * @param {string} storeUrlTemplate - The store URL template
  * @param {object[]} simpleItems - Simple product event items
  * @param {Map<string, object>} productMap - Product data
@@ -248,6 +251,8 @@ const transformVariantItems = (
  */
 const transformSimpleItems = (
   googleFeedLabel,
+  language,
+  country,
   storeUrlTemplate,
   simpleItems,
   productMap,
@@ -263,20 +268,17 @@ const transformSimpleItems = (
       continue;
     }
 
-    for (const source of item.sources) {
-      try {
-        const googleProduct = transformProduct(
-          googleFeedLabel,
-          product,
-          source,
-          storeUrlTemplate
-        );
-        transformed.push(googleProduct);
-      } catch (error) {
-        logger.error(
-          `Failed to transform product ${item.sku}: ${error.message}`
-        );
-      }
+    try {
+      const googleProduct = transformProduct(
+        googleFeedLabel,
+        product,
+        language,
+        country,
+        storeUrlTemplate
+      );
+      transformed.push(googleProduct);
+    } catch (error) {
+      logger.error(`Failed to transform product ${item.sku}: ${error.message}`);
     }
   }
   return transformed;
@@ -285,20 +287,27 @@ const transformSimpleItems = (
 /**
  * Fetches products from Commerce and transforms them for Google Merchant Center.
  *
- * @param {object} params - The parameters for the request
+ * @param {import('../../types/config').FeedConfig} feedConfig - The feed configuration
  * @param {string} tenantId - The tenant ID
  * @param {object[]} items - Event items to process
  * @param {Logger} logger - The logger to use
  * @returns {Promise<IProductInput[]>} Array of transformed Google product inputs
  */
-const fetchAndTransformProducts = async (params, tenantId, items, logger) => {
+const fetchAndTransformProducts = async (
+  feedConfig,
+  tenantId,
+  items,
+  logger
+) => {
   const {
-    ACO_API_BASE_URL: baseUrl,
-    ACO_PRICE_BOOK_ID: priceBookId,
-    ACO_VIEW_ID: viewId,
-    GOOGLE_FEED_LABEL: googleFeedLabel,
-    STORE_URL_TEMPLATE: storeUrlTemplate,
-  } = params;
+    acoApiBaseUrl: baseUrl,
+    acoPriceBookId: priceBookId,
+    acoViewId: viewId,
+    googleFeedLabel,
+    googleContentLanguage: language,
+    googleTargetCountry: country,
+    storeUrlTemplate,
+  } = feedConfig;
   const { complexVariantItems, simpleItems, complexParentSkus } =
     categorizeItems(items);
 
@@ -306,8 +315,6 @@ const fetchAndTransformProducts = async (params, tenantId, items, logger) => {
     `Categorized: ${complexVariantItems.length} variants, ${simpleItems.length} simple products, ${complexParentSkus.length} parents (skipped)`
   );
 
-  // TODO: Right now we support one view id from env vars.
-  // We should support multiple and look them up via the ACO Admin API.
   const [variantDataMap, simpleProductMap] = await Promise.all([
     fetchVariantData(
       baseUrl,
@@ -327,11 +334,10 @@ const fetchAndTransformProducts = async (params, tenantId, items, logger) => {
     ),
   ]);
 
-  // TODO: Right now we are using the source from the catalog event.
-  // This may not be ideal if the customer has multiple country targets under the same source.
-  // We may want to take an input (in env vars) of the desired country and language targets to be explicit.
   const transformedVariants = transformVariantItems(
     googleFeedLabel,
+    language,
+    country,
     storeUrlTemplate,
     complexVariantItems,
     variantDataMap,
@@ -339,6 +345,8 @@ const fetchAndTransformProducts = async (params, tenantId, items, logger) => {
   );
   const transformedSimple = transformSimpleItems(
     googleFeedLabel,
+    language,
+    country,
     storeUrlTemplate,
     simpleItems,
     simpleProductMap,
@@ -349,13 +357,12 @@ const fetchAndTransformProducts = async (params, tenantId, items, logger) => {
 };
 
 /**
- * Removes complex parent products from the items to delete
+ * Extracts SKUs to delete, excluding complex parent products.
  *
  * @param {object[]} items - Event items to delete
- * @returns {Array<{sku: string, source: object}>} Flattened items for deletion
+ * @returns {string[]} Array of SKUs for deletion
  */
-const prepareItemsToDelete = (items) => {
-  // Find parent SKUs to exclude
+const prepareSkusToDelete = (items) => {
   const parentSkus = new Set();
   for (const item of items) {
     const variantOfLink = getVariantOfLink(item);
@@ -364,17 +371,14 @@ const prepareItemsToDelete = (items) => {
     }
   }
 
-  // Only include items that are not parents
-  const deleteItems = [];
+  const skus = [];
   for (const item of items) {
-    if (parentSkus.has(item.sku)) continue; // Skip parent products
-
-    for (const source of item.sources) {
-      deleteItems.push({ sku: item.sku, source });
+    if (!parentSkus.has(item.sku)) {
+      skus.push(item.sku);
     }
   }
 
-  return deleteItems;
+  return skus;
 };
 
 /**
@@ -382,63 +386,61 @@ const prepareItemsToDelete = (items) => {
  *
  * @param {string} tenantId - The tenant ID
  * @param {object[]} items - The items to process
- * @param {object} params - The parameters for the request
+ * @param {import('../../types/config').FeedConfig} feedConfig - The feed configuration
  * @param {Logger} logger - The logger to use
  */
-const processProductEvent = async (tenantId, items, params, logger) => {
+const processProductEvent = async (tenantId, items, feedConfig, logger) => {
   const { create, update, delete: deleteOps } = groupByOperation(items);
   logger.info(
     `Processing ${create.length} creates, ${update.length} updates, ${deleteOps.length} deletes`
   );
 
-  // Handle creates
   if (create.length > 0) {
     const productsToInsert = await fetchAndTransformProducts(
-      params,
+      feedConfig,
       tenantId,
       create,
       logger
     );
     if (productsToInsert.length > 0) {
       await insertProducts(
-        params.GOOGLE_CREDS_PATH,
-        params.GOOGLE_MERCHANT_ID,
-        params.GOOGLE_DATA_SOURCE_ID,
+        feedConfig.googleCredsPath,
+        feedConfig.googleMerchantId,
+        feedConfig.googleDataSourceId,
         productsToInsert,
         logger
       );
     }
   }
 
-  // Handle updates
   if (update.length > 0) {
     const productsToUpdate = await fetchAndTransformProducts(
-      params,
+      feedConfig,
       tenantId,
       update,
       logger
     );
     if (productsToUpdate.length > 0) {
       await updateProducts(
-        params.GOOGLE_CREDS_PATH,
-        params.GOOGLE_MERCHANT_ID,
-        params.GOOGLE_DATA_SOURCE_ID,
+        feedConfig.googleCredsPath,
+        feedConfig.googleMerchantId,
+        feedConfig.googleDataSourceId,
         productsToUpdate,
         logger
       );
     }
   }
 
-  // Handle deletes
   if (deleteOps.length > 0) {
-    const deleteItems = prepareItemsToDelete(deleteOps);
-    if (deleteItems.length > 0) {
+    const skusToDelete = prepareSkusToDelete(deleteOps);
+    if (skusToDelete.length > 0) {
       await deleteProducts(
-        params.GOOGLE_CREDS_PATH,
-        params.GOOGLE_MERCHANT_ID,
-        params.GOOGLE_DATA_SOURCE_ID,
-        params.GOOGLE_FEED_LABEL,
-        deleteItems,
+        feedConfig.googleCredsPath,
+        feedConfig.googleMerchantId,
+        feedConfig.googleDataSourceId,
+        feedConfig.googleFeedLabel,
+        feedConfig.googleContentLanguage,
+        skusToDelete,
         logger
       );
     }

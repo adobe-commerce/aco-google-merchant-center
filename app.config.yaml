@@ -10,15 +10,10 @@ application:
             runtime: nodejs:22
             inputs:
               LOG_LEVEL: debug
-              GOOGLE_MERCHANT_ID: $GOOGLE_MERCHANT_ID
-              GOOGLE_DATA_SOURCE_ID: $GOOGLE_DATA_SOURCE_ID
-              GOOGLE_FEED_LABEL: $GOOGLE_FEED_LABEL
-              GOOGLE_CREDS_PATH: $GOOGLE_CREDS_PATH
-              STORE_BASE_URL: $STORE_BASE_URL
-              STORE_URL_TEMPLATE: $STORE_URL_TEMPLATE
+              STATE_REGION: $STATE_REGION
+              ACO_TENANT_ID: $ACO_TENANT_ID
               ACO_API_BASE_URL: $ACO_API_BASE_URL
-              ACO_VIEW_ID: $ACO_VIEW_ID
-              ACO_PRICE_BOOK_ID: $ACO_PRICE_BOOK_ID
+              GOOGLE_CREDS_PATH: $GOOGLE_CREDS_PATH
             annotations:
               require-adobe-auth: false
               final: true

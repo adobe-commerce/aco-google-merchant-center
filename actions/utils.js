@@ -1,5 +1,5 @@
 /*
-  Copyright 2025 Adobe. All rights reserved.
+  Copyright 2026 Adobe. All rights reserved.
   This file is licensed to you under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License. You may obtain a copy
   of the License at http://www.apache.org/licenses/LICENSE-2.0
@@ -156,10 +156,55 @@ function groupByOperation(items) {
   );
 }
 
+/**
+ * Groups event items by their applicable markets based on source.locale.
+ * A single locale can map to multiple markets, so items may appear in multiple groups.
+ *
+ * @param {object[]} items - Event items with sources array
+ * @param {Map<string, object[]>} localeIndex - Locale to markets lookup
+ * @param {object} logger - Logger instance
+ * @returns {Map<string, { market: object, items: object[] }>} Items grouped by market id
+ */
+function groupItemsByMarket(items, localeIndex, logger) {
+  const itemsByMarket = new Map();
+  let skippedCount = 0;
+
+  for (const item of items) {
+    let matched = false;
+
+    for (const source of item.sources || []) {
+      const locale = source.locale?.toLowerCase();
+      const markets = localeIndex.get(locale);
+
+      if (markets) {
+        matched = true;
+        for (const market of markets) {
+          if (!itemsByMarket.has(market.id)) {
+            itemsByMarket.set(market.id, { market, items: [] });
+          }
+          itemsByMarket.get(market.id).items.push(item);
+        }
+        break;
+      }
+    }
+
+    if (!matched) {
+      skippedCount++;
+    }
+  }
+
+  if (skippedCount > 0) {
+    logger.debug(`Skipped ${skippedCount} items with unconfigured locales`);
+  }
+
+  return itemsByMarket;
+}
+
 module.exports = {
   checkMissingRequestInputs,
   chunk,
   getBearerToken,
   groupByOperation,
+  groupItemsByMarket,
   stringParameters,
 };

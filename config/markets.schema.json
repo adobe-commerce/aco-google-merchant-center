@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "type": "object",
+    "required": ["id", "aco", "google", "store"],
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1
+      },
+      "aco": {
+        "type": "object",
+        "required": ["viewId", "priceBookId", "source"],
+        "properties": {
+          "viewId": { "type": "string", "minLength": 1 },
+          "priceBookId": { "type": "string", "minLength": 1 },
+          "source": {
+            "type": "object",
+            "required": ["locale"],
+            "properties": {
+              "locale": { "type": "string", "minLength": 1 }
+            }
+          }
+        }
+      },
+      "google": {
+        "type": "object",
+        "required": [
+          "merchantId",
+          "dataSourceId",
+          "feedLabel",
+          "contentLanguage",
+          "targetCountry"
+        ],
+        "properties": {
+          "merchantId": { "type": "string", "minLength": 1 },
+          "dataSourceId": { "type": "string", "minLength": 1 },
+          "feedLabel": { "type": "string", "minLength": 1 },
+          "contentLanguage": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          },
+          "targetCountry": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 2
+          }
+        }
+      },
+      "store": {
+        "type": "object",
+        "required": ["urlTemplate"],
+        "properties": {
+          "urlTemplate": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  },
+  "uniqueItems": true
+}

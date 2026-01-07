@@ -1,5 +1,5 @@
 /*
-  Copyright 2025 Adobe. All rights reserved.
+  Copyright 2026 Adobe. All rights reserved.
   This file is licensed to you under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License. You may obtain a copy
   of the License at http://www.apache.org/licenses/LICENSE-2.0
@@ -18,6 +18,7 @@ test("interface", () => {
   expect(typeof utils.getBearerToken).toBe("function");
   expect(typeof utils.chunk).toBe("function");
   expect(typeof utils.groupByOperation).toBe("function");
+  expect(typeof utils.groupItemsByMarket).toBe("function");
 });
 
 describe("stringParameters", () => {
@@ -215,5 +216,95 @@ describe("groupByOperation", () => {
       update: [],
       delete: [],
     });
+  });
+});
+
+describe("groupItemsByMarket", () => {
+  const mockLogger = { debug: jest.fn() };
+
+  const usMarket = {
+    id: "us",
+    aco: { source: { locale: "en-US" } },
+  };
+  const ukMarket = {
+    id: "uk",
+    aco: { source: { locale: "en-GB" } },
+  };
+
+  test("groups items by matching market locale", () => {
+    const localeIndex = new Map([
+      ["en-us", [usMarket]],
+      ["en-gb", [ukMarket]],
+    ]);
+    const items = [
+      { sku: "a", sources: [{ locale: "en-US" }] },
+      { sku: "b", sources: [{ locale: "en-GB" }] },
+      { sku: "c", sources: [{ locale: "en-US" }] },
+    ];
+
+    const result = utils.groupItemsByMarket(items, localeIndex, mockLogger);
+
+    expect(result.size).toBe(2);
+    expect(result.get("us").items).toHaveLength(2);
+    expect(result.get("uk").items).toHaveLength(1);
+  });
+
+  test("handles case-insensitive locale matching", () => {
+    const localeIndex = new Map([["en-us", [usMarket]]]);
+    const items = [
+      { sku: "a", sources: [{ locale: "EN-US" }] },
+      { sku: "b", sources: [{ locale: "en-us" }] },
+    ];
+
+    const result = utils.groupItemsByMarket(items, localeIndex, mockLogger);
+
+    expect(result.get("us").items).toHaveLength(2);
+  });
+
+  test("skips items with unconfigured locales", () => {
+    const localeIndex = new Map([["en-us", [usMarket]]]);
+    const items = [
+      { sku: "a", sources: [{ locale: "en-US" }] },
+      { sku: "b", sources: [{ locale: "fr-FR" }] },
+    ];
+
+    const result = utils.groupItemsByMarket(items, localeIndex, mockLogger);
+
+    expect(result.size).toBe(1);
+    expect(result.get("us").items).toHaveLength(1);
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      expect.stringContaining("Skipped 1 items")
+    );
+  });
+
+  test("returns empty map when no items match", () => {
+    const localeIndex = new Map([["en-us", [usMarket]]]);
+    const items = [{ sku: "a", sources: [{ locale: "fr-FR" }] }];
+
+    const result = utils.groupItemsByMarket(items, localeIndex, mockLogger);
+
+    expect(result.size).toBe(0);
+  });
+
+  test("handles items without sources", () => {
+    const localeIndex = new Map([["en-us", [usMarket]]]);
+    const items = [{ sku: "a" }, { sku: "b", sources: [] }];
+
+    const result = utils.groupItemsByMarket(items, localeIndex, mockLogger);
+
+    expect(result.size).toBe(0);
+  });
+
+  test("maps single locale to multiple markets", () => {
+    const usEast = { id: "us-east", aco: { source: { locale: "en-US" } } };
+    const usWest = { id: "us-west", aco: { source: { locale: "en-US" } } };
+    const localeIndex = new Map([["en-us", [usEast, usWest]]]);
+    const items = [{ sku: "a", sources: [{ locale: "en-US" }] }];
+
+    const result = utils.groupItemsByMarket(items, localeIndex, mockLogger);
+
+    expect(result.size).toBe(2);
+    expect(result.get("us-east").items).toHaveLength(1);
+    expect(result.get("us-west").items).toHaveLength(1);
   });
 });

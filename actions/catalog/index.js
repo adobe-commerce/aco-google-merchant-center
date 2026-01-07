@@ -1,5 +1,5 @@
 /*
-  Copyright 2025 Adobe. All rights reserved.
+  Copyright 2026 Adobe. All rights reserved.
   This file is licensed to you under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License. You may obtain a copy
   of the License at http://www.apache.org/licenses/LICENSE-2.0
@@ -10,6 +10,11 @@
   governing permissions and limitations under the License.
 */
 
+/**
+ * @typedef {import('../../types/config').MarketConfig} MarketConfig
+ * @typedef {import('../../types/config').FeedConfig} FeedConfig
+ */
+
 const { Core } = require("@adobe/aio-sdk");
 const {
   ACO_EVENT_TYPE_PRODUCT,
@@ -18,8 +23,45 @@ const {
   HTTP_INTERNAL_ERROR,
 } = require("../constants.js");
 const { errorResponse, successResponse } = require("../responses.js");
-const { checkMissingRequestInputs, stringParameters } = require("../utils.js");
+const {
+  checkMissingRequestInputs,
+  groupItemsByMarket,
+  stringParameters,
+} = require("../utils.js");
+const { loadMarketConfig, buildLocaleIndex } = require("../config.js");
 const { processProductEvent } = require("../../processors/aco/products.js");
+
+/**
+ * Filters price event items to only include those matching the market's price book.
+ */
+const filterPriceItemsForMarket = (items, priceBookId) => {
+  return items.filter((item) =>
+    item.sources?.some((source) => source.priceBookId === priceBookId)
+  );
+};
+
+/**
+ * Builds feed configuration from action params and market config.
+ *
+ * @param {object} params - Action input params
+ * @param {MarketConfig} market - Market configuration
+ * @returns {FeedConfig}
+ */
+const buildFeedConfig = (params, market) => {
+  return {
+    acoApiBaseUrl: params.ACO_API_BASE_URL,
+    acoViewId: market.aco.viewId,
+    acoPriceBookId: market.aco.priceBookId,
+    googleCredsPath: params.GOOGLE_CREDS_PATH,
+    googleMerchantId: market.google.merchantId,
+    googleDataSourceId: market.google.dataSourceId,
+    googleFeedLabel: market.google.feedLabel,
+    googleContentLanguage: market.google.contentLanguage,
+    googleTargetCountry: market.google.targetCountry,
+    storeUrlTemplate: market.store.urlTemplate,
+  };
+};
+
 /**
  * Main function that processes the incoming event.
  *
@@ -31,18 +73,14 @@ const main = async (params) => {
     level: params.LOG_LEVEL || "info",
   });
 
-  logger.info(`Processing catalog event for tenant: ${params.data.instanceId}`);
+  logger.info(
+    `Processing catalog event for tenant: ${params.data?.instanceId}`
+  );
 
-  // Check for missing environment variables
   const requiredEnv = [
     "ACO_API_BASE_URL",
-    "ACO_PRICE_BOOK_ID",
-    "ACO_VIEW_ID",
-    "GOOGLE_MERCHANT_ID",
-    "GOOGLE_DATA_SOURCE_ID",
-    "GOOGLE_FEED_LABEL",
+    "ACO_TENANT_ID",
     "GOOGLE_CREDS_PATH",
-    "STORE_URL_TEMPLATE",
   ];
   const missingEnv = checkMissingRequestInputs(params, requiredEnv, []);
   if (missingEnv) {
@@ -50,7 +88,6 @@ const main = async (params) => {
     return errorResponse(HTTP_INTERNAL_ERROR, missingEnv);
   }
 
-  // Check for missing event data parameters
   const requiredParams = ["type", "data.instanceId", "data.items"];
   const missingParams = checkMissingRequestInputs(params, requiredParams, []);
   if (missingParams) {
@@ -61,17 +98,68 @@ const main = async (params) => {
   try {
     const { type, data } = params;
     const { instanceId: tenantId, items } = data;
+    const expectedTenantId = params.ACO_TENANT_ID;
 
-    if ([ACO_EVENT_TYPE_PRODUCT, ACO_EVENT_TYPE_PRICE].includes(type)) {
-      await processProductEvent(tenantId, items, params, logger);
-    } else {
-      logger.error(`Invalid event type: ${type}`);
-      return errorResponse(HTTP_BAD_REQUEST, `Invalid event type: ${type}`);
+    // Check if the event tenant ID matches the expected tenant ID
+    if (tenantId !== expectedTenantId) {
+      logger.error(
+        `Event tenant ID ${tenantId} does not match expected tenant ID ${expectedTenantId}`
+      );
+      return errorResponse(
+        HTTP_BAD_REQUEST,
+        `Event tenant ID ${tenantId} does not match expected tenant ID ${expectedTenantId}`
+      );
     }
 
+    const marketConfig = loadMarketConfig();
+    logger.debug(`Loaded configuration for ${marketConfig.length} markets`);
+    const localeIndex = buildLocaleIndex(marketConfig);
+    // Group the event items by the configured markets
+    const itemsByMarket = groupItemsByMarket(items, localeIndex, logger);
+
+    if (itemsByMarket.size === 0) {
+      logger.info(
+        "No event items matched configured markets, skipping processing"
+      );
+      return successResponse(type, "No event items matched configured markets");
+    }
+
+    for (const [marketId, { market, items: marketItems }] of itemsByMarket) {
+      logger.info(
+        `Processing ${marketItems.length} items for market: ${marketId}`
+      );
+      const feedConfig = buildFeedConfig(params, market);
+
+      if (type === ACO_EVENT_TYPE_PRODUCT) {
+        await processProductEvent(tenantId, marketItems, feedConfig, logger);
+      } else if (type === ACO_EVENT_TYPE_PRICE) {
+        // Filter price event items to only include those matching the market's price book
+        const validItems = filterPriceItemsForMarket(
+          marketItems,
+          market.aco.priceBookId
+        );
+        if (validItems.length > 0) {
+          logger.info(
+            `Processing ${validItems.length} of ${marketItems.length} price events for market ${marketId}`
+          );
+          // Price events are processed the same way as product events
+          await processProductEvent(tenantId, validItems, feedConfig, logger);
+        } else {
+          logger.info(`No price events for market ${marketId} price book`);
+        }
+      } else {
+        logger.error(`Invalid event type: ${type}`);
+        return errorResponse(HTTP_BAD_REQUEST, `Invalid event type: ${type}`);
+      }
+    }
+
+    const totalProcessed = [...itemsByMarket.values()].reduce(
+      (sum, { items }) => sum + items.length,
+      0
+    );
     return successResponse(
       type,
-      `Processed ${items.length} items for tenant: ${tenantId}`
+      `Processed ${totalProcessed} items across ${itemsByMarket.size} markets for tenant: ${tenantId}`
     );
   } catch (error) {
     logger.error(`Could not process catalog event. Error: ${error.message}`);
