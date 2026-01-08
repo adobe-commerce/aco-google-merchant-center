@@ -203,7 +203,7 @@ If your product uses different attribute names but values already match Google's
 
 ### Full Configuration (Apparel Example)
 
-Complete example for an apparel retailer with both field and value mappings:
+Complete example for an apparel retailer with field and value mappings:
 
 ```json
 {

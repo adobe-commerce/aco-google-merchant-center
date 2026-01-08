@@ -126,26 +126,33 @@ const getAvailability = (inStock) => {
   return inStock ? Availability.IN_STOCK : Availability.OUT_OF_STOCK;
 };
 
-/*
+/**
  * Gets the shipping info for the product.
+ * This is a customization point - modify this function to implement your shipping logic.
  *
  * @param {CommerceProduct} product - The Commerce product object
- * @param {string} country - The country code
- * @returns {object} The shipping info
+ * @param {string} country - The target country code
+ * @returns {object|null} The shipping info, or null to omit shipping (use Merchant Center settings)
  */
 const getShippingInfo = (product, country) => {
+  // Default implementation: looks for shippingMethod and shippingPrice attributes.
+  // For complex shipping logic (multiple methods, calculated prices, etc.),
+  // customize this function or return null to use Merchant Center account settings.
   const shippingMethod = getAttributeValue(
     product.attributes,
     "shippingMethod"
   );
   const shippingPrice = getAttributeValue(product.attributes, "shippingPrice");
-  const currencyCode =
-    getAttributeValue(product.attributes, "shippingCurrency") ||
-    transformPrice(product).currencyCode;
+
+  // If no shipping attributes, return null to omit shipping from the feed
+  if (!shippingPrice) {
+    return null;
+  }
+
   return {
     price: {
-      amountMicros: toMicros(shippingPrice || 0),
-      currencyCode,
+      amountMicros: toMicros(shippingPrice),
+      currencyCode: transformPrice(product)?.currencyCode || "USD",
     },
     country,
     service: shippingMethod || "standard",
@@ -216,15 +223,15 @@ const getGoogleFieldName = (customAttrName) => {
 };
 
 /**
- * Finds the custom attribute name for a Google field using field mappings.
- * Config format: { googleField: customAttr }
+ * Finds the custom attribute name for a field using field mappings.
+ * Config format: { field: customAttr }
  *
- * @param {string} googleField - The Google field name
- * @returns {string} The custom attribute name, or the Google field name if no mapping exists
+ * @param {string} field - The field name
+ * @returns {string} The custom attribute name, or the field name if no mapping exists
  */
-const getCustomAttrName = (googleField) => {
+const getCustomAttrName = (field) => {
   const { fieldMappings } = attributeMapping;
-  return fieldMappings[googleField] || googleField;
+  return fieldMappings[field] || field;
 };
 
 /**
@@ -298,28 +305,17 @@ const categorizeAttributes = (attributes) => {
 };
 
 /**
- * Resolves product identifiers per Google requirements.
- * Google requires: gtin, mpn+brand, or identifierExists=false
+ * Checks if product has valid identifiers per Google requirements.
+ * Google requires: gtin, or mpn+brand. If neither exists, identifierExists must be false.
  *
  * @param {object} standardFields - Object containing gtins, mpn, brand fields
- * @param {...CommerceAttribute[]} attributeSources - Attribute arrays to check for manufacturerSku
- * @returns {{ mpn?: string, identifierExists?: boolean }} Identifier fields to merge
+ * @returns {boolean} True if product has valid identifiers
  */
-const getIdentifiers = (standardFields, ...attributeSources) => {
-  if (standardFields.gtins || standardFields.mpn) {
-    return {};
-  }
-
-  let manufacturerSku = null;
-  for (const attributes of attributeSources) {
-    manufacturerSku = getAttributeValue(attributes, "manufacturerSku");
-    if (manufacturerSku) break;
-  }
-
-  if (standardFields.brand && manufacturerSku) {
-    return { mpn: manufacturerSku };
-  }
-  return { identifierExists: false };
+const hasValidIdentifiers = (standardFields) => {
+  return !!(
+    standardFields.gtins ||
+    (standardFields.brand && standardFields.mpn)
+  );
 };
 
 /**
@@ -380,7 +376,6 @@ const transformProduct = (
   }
 
   const { standard, custom } = categorizeAttributes(attributes);
-  const identifiers = getIdentifiers(standard, attributes);
   const additionalImages = getAdditionalImageUrls(images);
   const conditionAttrName = getCustomAttrName("condition");
   const rawCondition = getAttributeValue(attributes, conditionAttrName);
@@ -393,14 +388,20 @@ const transformProduct = (
     imageLink: getPrimaryImageUrl(images),
     availability: getAvailability(product.inStock),
     condition: mapCondition(mappedCondition),
-    shipping: [getShippingInfo(product, country)],
     price,
     ...standard,
-    ...identifiers,
-    ...(additionalImages.length > 0 && {
-      additionalImageLinks: additionalImages,
-    }),
   };
+
+  const shippingInfo = getShippingInfo(product, country);
+  if (shippingInfo) {
+    productAttributes.shipping = [shippingInfo];
+  }
+  if (!hasValidIdentifiers(standard)) {
+    productAttributes.identifierExists = false;
+  }
+  if (additionalImages.length > 0) {
+    productAttributes.additionalImageLinks = additionalImages;
+  }
 
   return buildProductInput(
     feedLabel,
@@ -461,11 +462,6 @@ const transformVariant = (
     ...parentCategorized.standard,
     ...variantCategorized.standard,
   };
-  const identifiers = getIdentifiers(
-    mergedAttributes,
-    variantAttributes,
-    parentAttributes
-  );
   const additionalImages = getAdditionalImageUrls(images);
   const conditionAttrName = getCustomAttrName("condition");
   const rawCondition = getAttributeValue(variantAttributes, conditionAttrName);
@@ -481,15 +477,21 @@ const transformVariant = (
     imageLink: getPrimaryImageUrl(images),
     availability: getAvailability(variantProduct.inStock),
     condition: mapCondition(mappedCondition),
-    shipping: [getShippingInfo(variantProduct, country)],
     price,
     itemGroupId: parentProduct.sku,
     ...mergedAttributes,
-    ...identifiers,
-    ...(additionalImages.length > 0 && {
-      additionalImageLinks: additionalImages,
-    }),
   };
+
+  const shippingInfo = getShippingInfo(variantProduct, country);
+  if (shippingInfo) {
+    productAttributes.shipping = [shippingInfo];
+  }
+  if (!hasValidIdentifiers(mergedAttributes)) {
+    productAttributes.identifierExists = false;
+  }
+  if (additionalImages.length > 0) {
+    productAttributes.additionalImageLinks = additionalImages;
+  }
 
   return buildProductInput(
     feedLabel,

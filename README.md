@@ -141,7 +141,7 @@ aio app deploy
 > [!TIP]
 > Run the `aio app deploy` command with `--force-build --force-deploy` flags to force a clean build.
 
-#### Register Your Starter Kit Actions
+#### Register Your App Builder Actions
 
 Complete the event registration process in your Dev Console project.
 

@@ -18,8 +18,8 @@ const HTTP_INTERNAL_ERROR = 500; // Server-side error: unexpected failure
 
 // ACO Event Types
 const ACO_EVENT_TYPE_PRODUCT =
-  "com.adobe.commerce.storefront.events.product.aco";
-const ACO_EVENT_TYPE_PRICE = "com.adobe.commerce.storefront.events.price.aco";
+  "com.adobe.commerce.storefront.events.product.ccdm";
+const ACO_EVENT_TYPE_PRICE = "com.adobe.commerce.storefront.events.price.ccdm";
 
 // Export the constants so they can be reused in other modules/files
 module.exports = {

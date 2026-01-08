@@ -9,13 +9,13 @@ application:
             web: "no"
             runtime: nodejs:22
             inputs:
-              LOG_LEVEL: debug
+              LOG_LEVEL: $LOG_LEVEL
               STATE_REGION: $STATE_REGION
               ACO_TENANT_ID: $ACO_TENANT_ID
               ACO_API_BASE_URL: $ACO_API_BASE_URL
               GOOGLE_CREDS_PATH: $GOOGLE_CREDS_PATH
             annotations:
-              require-adobe-auth: false
+              require-adobe-auth: true
               final: true
   events:
     registrations:
@@ -24,6 +24,6 @@ application:
         events_of_interest:
           - provider_metadata: dx_commerce_catalog
             event_codes:
-              - cm.adobe.commerce.storefront.events.product.aco
-              - com.adobe.commerce.storefront.events.price.aco
+              - com.adobe.commerce.storefront.events.product.ccdm
+              - com.adobe.commerce.storefront.events.price.ccdm
         runtime_action: aco-google-merchant-center/catalog
