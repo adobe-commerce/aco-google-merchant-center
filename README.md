@@ -62,14 +62,13 @@ npm install -g @adobe/aio-cli
 3. Add the required API services to your new App Builder project.
    1. Click the **Add service** button.
    2. In the dropdown, select **API**.
-   3. Select the **Adobe Commerce Optimizer Admin** card.
+   3. Select the **I/O Events** card.
    4. Click **Next**.
    5. Click **Next**.
    6. Select the checkbox next to the **Default - Cloud Manager** profile.
    7. Click **Save configured API**
    8. Repeat the above steps for the following APIs to add them to your credential:
-      1. I/O Events
-      2. I/O Management API
+      1. I/O Management API
 4. Subscribe to the Commerce Catalog Events
    1. Click the **Add service** button.
    2. In the dropdown, select **Event**.
@@ -141,15 +140,76 @@ aio app deploy
 > [!TIP]
 > Run the `aio app deploy` command with `--force-build --force-deploy` flags to force a clean build.
 
-#### Register Your App Builder Actions
+## Logging
 
-Complete the event registration process in your Dev Console project.
+See the following App Builder documentation for more info:
+
+- [Logging and Monitoring](https://developer.adobe.com/app-builder/docs/guides/runtime_guides/logging-monitoring)
+- [Logging and Troubleshooting](https://developer.adobe.com/commerce/extensibility/app-development/best-practices/logging-troubleshooting)
+
+### Tail All Action Logs
+
+```sh
+aio rt logs --tail
+```
+
+### List Activation Logs
+
+List all runtime actions that have been activated.
+
+```sh
+aio rt activation list
+```
+
+### View Activation Log by ID
+
+View the logs for a specific `activation_id`.
+
+```sh
+aio rt logs ${activation_id}
+```
 
 ## Local Dev
 
 To run your actions locally use the `aio app dev` option. The app will run on `localhost:9080` by default.
 
 For more information about the local development, see [here](https://developer.adobe.com/app-builder/docs/guides/development).
+
+### Send a test event
+
+After starting the local server, you can send a test event via `curl` or any other HTTP client. Event payload examples can be found in the [example_event_payloads](./example_event_payloads/) directory.
+
+```sh
+curl -k -X POST https://localhost:9080/api/v1/web/aco-google-merchant-center/catalog \
+  -H "Content-Type: application/json" \
+  -d '{
+    "specversion": "1.0",
+    "type": "com.adobe.commerce.storefront.events.product.ccdm",
+    "source": "urn:uuid:fb58963f-d2e7-4ab4-83da-b6ff15b8ebc0",
+    "id": "23f76cef-9f14-44b1-bbd0-29995789c98e",
+    "time": "2025-12-17T12:00:00.000Z",
+    "datacontenttype": "application/json",
+    "data": {
+      "instanceId": "XdAHsRLZSusTtmCu3Kzobk",
+      "items": [
+        {
+          "sku": "bol-mam-tir-prm-2014",
+          "operation": "create",
+          "sources": [{ "locale": "en-US" }]
+        }
+      ]
+    }
+  }'
+```
+
+You should see a response like the example below. Logs will be output to the console.
+
+```sh
+{
+  "type": "com.adobe.commerce.storefront.events.product.ccdm",
+  "response": "Processed 1 item(s) across 1 market(s) for tenant: XdAHsRLZSusTtmCu3Kzobk"
+}
+```
 
 ## Test & Coverage
 

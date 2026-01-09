@@ -159,7 +159,7 @@ const main = async (params) => {
     );
     return successResponse(
       type,
-      `Processed ${totalProcessed} items across ${itemsByMarket.size} markets for tenant: ${tenantId}`
+      `Processed ${totalProcessed} item(s) across ${itemsByMarket.size} market(s) for tenant: ${tenantId}`
     );
   } catch (error) {
     logger.error(`Could not process catalog event. Error: ${error.message}`);
