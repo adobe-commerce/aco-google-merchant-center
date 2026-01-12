@@ -9,9 +9,9 @@
     "instanceId": "XdAHsRLZSusTtmCu3Kzobk",
     "items": [
       {
-        "sku": "carvelo-nexus-engine-eco",
+        "sku": "child-sku-1",
         "operation": "create",
-        "links": [{ "type": "variantOf", "sku": "carvelo-nexus-engine" }],
+        "links": [{ "type": "variantOf", "sku": "parent-sku" }],
         "sources": [{ "locale": "en-US" }]
       }
     ]
