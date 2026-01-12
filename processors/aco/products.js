@@ -11,12 +11,12 @@
 */
 
 const { chunk, groupByOperation } = require("../../actions/utils.js");
-const { getProducts, getVariants } = require("../../clients/commerce.js");
 const {
-  insertProducts,
-  updateProducts,
-  deleteProducts,
-} = require("../../clients/google.js");
+  getProducts,
+  getVariants,
+  isComplexProduct,
+} = require("../../clients/commerce.js");
+const { upsertProducts, deleteProducts } = require("../../clients/google.js");
 const {
   transformProduct,
   transformVariant,
@@ -200,6 +200,7 @@ const fetchSimpleProducts = async (
  * @param {Map<string, {parentProduct: object, variant: object}>} variantDataMap - Variant data
  * @param {Logger} logger - The logger to use
  * @returns {IProductInput[]} Array of transformed Google product inputs
+ * @throws {Error} If a variant is not found or fails to transform
  */
 const transformVariantItems = (
   googleFeedLabel,
@@ -211,13 +212,15 @@ const transformVariantItems = (
   logger
 ) => {
   const transformed = [];
+
   for (const item of variantItems) {
     const data = variantDataMap.get(item.sku);
     if (!data) {
-      logger.error(
-        `Product ${item.sku} not found in data from Storefront API. Skipping.`
+      const error = new Error(
+        `Variant ${item.sku} not found in data from Storefront API`
       );
-      continue;
+      logger.error(error.message);
+      throw error;
     }
 
     try {
@@ -232,8 +235,10 @@ const transformVariantItems = (
       transformed.push(product);
     } catch (error) {
       logger.error(`Failed to transform variant ${item.sku}: ${error.message}`);
+      throw error;
     }
   }
+
   return transformed;
 };
 
@@ -248,6 +253,7 @@ const transformVariantItems = (
  * @param {Map<string, object>} productMap - Product data
  * @param {object} logger - The logger to use
  * @returns {IProductInput[]} Transformed products
+ * @throws {Error} If a product is not found or fails to transform
  */
 const transformSimpleItems = (
   googleFeedLabel,
@@ -259,11 +265,19 @@ const transformSimpleItems = (
   logger
 ) => {
   const transformed = [];
+
   for (const item of simpleItems) {
     const product = productMap.get(item.sku);
     if (!product) {
-      logger.error(
-        `Simple product ${item.sku} not found in Commerce. Skipping.`
+      const error = new Error(`Product ${item.sku} not found in Commerce`);
+      logger.error(error.message);
+      throw error;
+    }
+
+    // Skip complex product parent SKUs - only their variants should be sent to GMC
+    if (isComplexProduct(product)) {
+      logger.info(
+        `Skipping complex product parent ${item.sku} - only variants are sent to GMC`
       );
       continue;
     }
@@ -279,8 +293,10 @@ const transformSimpleItems = (
       transformed.push(googleProduct);
     } catch (error) {
       logger.error(`Failed to transform product ${item.sku}: ${error.message}`);
+      throw error;
     }
   }
+
   return transformed;
 };
 
@@ -292,6 +308,7 @@ const transformSimpleItems = (
  * @param {object[]} items - Event items to process
  * @param {Logger} logger - The logger to use
  * @returns {Promise<IProductInput[]>} Array of transformed Google product inputs
+ * @throws {Error} If fetching or transforming fails
  */
 const fetchAndTransformProducts = async (
   feedConfig,
@@ -388,6 +405,7 @@ const prepareSkusToDelete = (items) => {
  * @param {object[]} items - The items to process
  * @param {import('../../types/config').FeedConfig} feedConfig - The feed configuration
  * @param {Logger} logger - The logger to use
+ * @throws {Error} If fetching, transforming, or sending to Google fails
  */
 const processProductEvent = async (tenantId, items, feedConfig, logger) => {
   const { create, update, delete: deleteOps } = groupByOperation(items);
@@ -395,37 +413,23 @@ const processProductEvent = async (tenantId, items, feedConfig, logger) => {
     `Processing ${create.length} creates, ${update.length} updates, ${deleteOps.length} deletes`
   );
 
-  if (create.length > 0) {
-    const productsToInsert = await fetchAndTransformProducts(
+  // Combine create and update operations - Google's insertProductInput is an upsert
+  // that handles both cases. This avoids NOT_FOUND errors when a product exists in
+  // ACO (update event) but not yet in GMC.
+  const upsertItems = [...create, ...update];
+  if (upsertItems.length > 0) {
+    const productsToUpsert = await fetchAndTransformProducts(
       feedConfig,
       tenantId,
-      create,
+      upsertItems,
       logger
     );
-    if (productsToInsert.length > 0) {
-      await insertProducts(
+    if (productsToUpsert.length > 0) {
+      await upsertProducts(
         feedConfig.googleCredsPath,
         feedConfig.googleMerchantId,
         feedConfig.googleDataSourceId,
-        productsToInsert,
-        logger
-      );
-    }
-  }
-
-  if (update.length > 0) {
-    const productsToUpdate = await fetchAndTransformProducts(
-      feedConfig,
-      tenantId,
-      update,
-      logger
-    );
-    if (productsToUpdate.length > 0) {
-      await updateProducts(
-        feedConfig.googleCredsPath,
-        feedConfig.googleMerchantId,
-        feedConfig.googleDataSourceId,
-        productsToUpdate,
+        productsToUpsert,
         logger
       );
     }

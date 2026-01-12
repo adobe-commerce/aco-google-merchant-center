@@ -46,7 +46,7 @@ sequenceDiagram
         Commerce-->>Processor: products
         Processor->>Transformer: transform(language, country)
         Transformer-->>Processor: googleProducts
-        Processor->>Google: insertProducts(merchantId, dataSourceId)
+        Processor->>Google: upsertProducts(merchantId, dataSourceId)
     end
 ```
 

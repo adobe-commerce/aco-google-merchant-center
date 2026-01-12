@@ -179,9 +179,22 @@ For more information about the local development, see [here](https://developer.a
 
 After starting the local server, you can send a test event via `curl` or any other HTTP client. Event payload examples can be found in the [example_event_payloads](./example_event_payloads/) directory.
 
+For more information about testing this application with mock events, see the [README](./example_event_payloads/README.md) inside the `example_event_payloads` directory.
+
+### Authorization
+
+If `require-adobe-auth` is `true` in [app.config.yaml](../app.config.yaml), an `Authorization` header with your Dev Console project's access token will need to be provided in the test event call.
+
+An access token can be generated in your [Developer Console](https://developer.adobe.com/console) in the Project's **Credentials** section.
+
+![Dev Console Creds](../docs/dev_console_creds.png)
+
+### Example
+
 ```sh
 curl -k -X POST https://localhost:9080/api/v1/web/aco-google-merchant-center/catalog \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer {ims_access_token}" \
   -d '{
     "specversion": "1.0",
     "type": "com.adobe.commerce.storefront.events.product.ccdm",

@@ -11,7 +11,7 @@
 */
 
 /**
- * Google Merchant Center client for inserting products.
+ * Google Merchant Center client for managing products.
  *
  * @typedef {import('@google-shopping/products').protos.google.shopping.merchant.products.v1.IProductInput} IProductInput
  */
@@ -20,7 +20,6 @@ const fs = require("fs");
 const path = require("path");
 const { GoogleAuth } = require("google-auth-library");
 const { ProductInputsServiceClient } = require("@google-shopping/products").v1;
-const { PRODUCT_FIELD_MASKS } = require("../transformers/product");
 
 const SCOPES = ["https://www.googleapis.com/auth/content"];
 
@@ -59,16 +58,17 @@ const getCredentials = async (serviceAccountFile) => {
 };
 
 /**
- * Inserts multiple products into Google Merchant Center concurrently.
+ * Upserts multiple products into Google Merchant Center concurrently.
+ * Uses insertProductInput which creates new products or updates existing ones.
  *
  * @param {string} credsPath - Path to the service account JSON file
  * @param {string} merchantId - The Merchant Center account ID
- * @param {string} dataSourceId - The data source ID to insert the products into
+ * @param {string} dataSourceId - The data source ID to upsert the products into
  * @param {IProductInput[]} productInputs - Array of product inputs from transformer
  * @param {Logger} logger - The logger to use
- * @returns {Promise<object[]>} Array of inserted product responses
+ * @returns {Promise<object[]>} Array of upserted product responses
  */
-const insertProducts = async (
+const upsertProducts = async (
   credsPath,
   merchantId,
   dataSourceId,
@@ -90,7 +90,7 @@ const insertProducts = async (
     productInput,
   }));
 
-  logger.info(`Inserting ${requests.length} products concurrently`);
+  logger.info(`Upserting ${requests.length} products concurrently`);
 
   const insertPromises = requests.map((request) =>
     client.insertProductInput(request)
@@ -99,58 +99,8 @@ const insertProducts = async (
   logger.debug(`Response from Google: ${JSON.stringify(results)}`);
   const insertedProducts = results.map((result) => result[0]);
 
-  logger.info(`Successfully inserted ${insertedProducts.length} products`);
+  logger.info(`Successfully upserted ${insertedProducts.length} products`);
   return insertedProducts;
-};
-
-/**
- * Updates multiple products in Google Merchant Center concurrently.
- *
- * @param {string} credsPath - Path to the service account JSON file
- * @param {string} merchantId - The Merchant Center account ID
- * @param {string} dataSourceId - The data source ID
- * @param {IProductInput[]} productInputs - Array of product inputs from transformer
- * @param {Logger} logger - The logger to use
- * @returns {Promise<object[]>} Array of updated product responses
- */
-const updateProducts = async (
-  credsPath,
-  merchantId,
-  dataSourceId,
-  productInputs,
-  logger
-) => {
-  if (productInputs.length === 0) return [];
-
-  const config = getConfig(credsPath, merchantId);
-  const authClient = await getCredentials(config.serviceAccountFile);
-
-  const client = new ProductInputsServiceClient({ authClient });
-  const dataSource = `accounts/${merchantId}/dataSources/${dataSourceId}`;
-
-  const requests = productInputs.map((productInput) => {
-    const productId = `${productInput.contentLanguage}~${productInput.feedLabel}~${productInput.offerId}`;
-    return {
-      productInput: {
-        name: `accounts/${merchantId}/productInputs/${productId}`,
-        ...productInput,
-      },
-      updateMask: { paths: PRODUCT_FIELD_MASKS },
-      dataSource,
-    };
-  });
-
-  logger.info(`Updating ${requests.length} products concurrently`);
-
-  const updatePromises = requests.map((request) =>
-    client.updateProductInput(request)
-  );
-  const results = await Promise.all(updatePromises);
-  logger.debug(`Response from Google: ${JSON.stringify(results)}`);
-  const updatedProducts = results.map((result) => result[0]);
-
-  logger.info(`Successfully updated ${updatedProducts.length} products`);
-  return updatedProducts;
 };
 
 /**
@@ -201,7 +151,6 @@ const deleteProducts = async (
 };
 
 module.exports = {
-  insertProducts,
-  updateProducts,
+  upsertProducts,
   deleteProducts,
 };

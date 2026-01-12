@@ -11,7 +11,7 @@
       {
         "sku": "bol-mam-tir-prm-2014",
         "operation": "update",
-        "sources": [{ "priceBookId": "vip_west_coast_inc" }]
+        "sources": [{ "priceBookId": "global_visibility" }]
       }
     ]
   }
