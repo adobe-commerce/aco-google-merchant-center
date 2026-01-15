@@ -77,7 +77,11 @@ const main = async (params) => {
     `Processing catalog event for tenant: ${params.data?.instanceId}`
   );
 
-  const requiredEnv = ["ACO_API_BASE_URL", "GOOGLE_CREDS_PATH"];
+  const requiredEnv = [
+    "ACO_API_BASE_URL",
+    "ACO_TENANT_ID",
+    "GOOGLE_CREDS_PATH",
+  ];
   const missingEnv = checkMissingRequestInputs(params, requiredEnv, []);
   if (missingEnv) {
     logger.error(`Missing environment variables: ${missingEnv}`);
@@ -93,7 +97,8 @@ const main = async (params) => {
 
   try {
     const { type, data } = params;
-    const { instanceId: tenantId, items } = data;
+    const { items } = data;
+    const tenantId = params.ACO_TENANT_ID;
 
     const marketConfig = loadMarketConfig();
     logger.debug(`Loaded configuration for ${marketConfig.length} markets`);
