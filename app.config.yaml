@@ -13,17 +13,7 @@ application:
               STATE_REGION: $STATE_REGION
               ACO_TENANT_ID: $ACO_TENANT_ID
               ACO_API_BASE_URL: $ACO_API_BASE_URL
-              GOOGLE_CREDS_PATH: $GOOGLE_CREDS_PATH
+              GOOGLE_CREDS_JSON: $GOOGLE_CREDS_JSON
             annotations:
               require-adobe-auth: true
               final: true
-  events:
-    registrations:
-      Event Registration Default:
-        description: Registration for IO Events
-        events_of_interest:
-          - provider_metadata: dx_commerce_catalog
-            event_codes:
-              - com.adobe.commerce.storefront.events.product.ccdm
-              - com.adobe.commerce.storefront.events.price.ccdm
-        runtime_action: aco-google-merchant-center/catalog

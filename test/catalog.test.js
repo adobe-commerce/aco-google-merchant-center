@@ -70,7 +70,7 @@ const baseParams = {
   LOG_LEVEL: "info",
   ACO_API_BASE_URL: "https://api.example.com",
   ACO_TENANT_ID: "tenant-123",
-  GOOGLE_CREDS_PATH: "/path/to/creds.json",
+  GOOGLE_CREDS_JSON: '{"type":"service_account"}',
   type: "com.adobe.commerce.storefront.events.product.aco",
   data: {
     instanceId: "tenant-123",

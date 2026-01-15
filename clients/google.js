@@ -16,43 +16,22 @@
  * @typedef {import('@google-shopping/products').protos.google.shopping.merchant.products.v1.IProductInput} IProductInput
  */
 
-const fs = require("fs");
-const path = require("path");
 const { GoogleAuth } = require("google-auth-library");
 const { ProductInputsServiceClient } = require("@google-shopping/products").v1;
 
 const SCOPES = ["https://www.googleapis.com/auth/content"];
 
 /**
- * Gets credentials configuration.
- *
- * @param {string} credsPath - Path to the service account JSON file
- * @param {string} merchantId - The Merchant Center account ID
- * @returns {{serviceAccountFile: string, merchantId: string}}
- */
-const getConfig = (credsPath, merchantId) => {
-  const serviceAccountFile = path.isAbsolute(credsPath)
-    ? credsPath
-    : path.resolve(process.cwd(), credsPath);
-
-  return { serviceAccountFile, merchantId };
-};
-
-/**
  * Gets authentication credentials using a service account.
  *
- * @param {string} serviceAccountFile - Path to the service account JSON file
+ * @param {string} credsJson - JSON string containing service account credentials
  * @returns {Promise<GoogleAuth>} Authenticated GoogleAuth instance
  */
-const getCredentials = async (serviceAccountFile) => {
-  if (!fs.existsSync(serviceAccountFile)) {
-    throw new Error(
-      `Service account file does not exist at: ${serviceAccountFile}`
-    );
-  }
+const getCredentials = async (credsJson) => {
+  const credentials = JSON.parse(credsJson);
 
   return new GoogleAuth({
-    keyFilename: serviceAccountFile,
+    credentials,
     scopes: SCOPES,
   });
 };
@@ -61,7 +40,7 @@ const getCredentials = async (serviceAccountFile) => {
  * Upserts multiple products into Google Merchant Center concurrently.
  * Uses insertProductInput which creates new products or updates existing ones.
  *
- * @param {string} credsPath - Path to the service account JSON file
+ * @param {string} credsJson - JSON string containing service account credentials
  * @param {string} merchantId - The Merchant Center account ID
  * @param {string} dataSourceId - The data source ID to upsert the products into
  * @param {IProductInput[]} productInputs - Array of product inputs from transformer
@@ -69,7 +48,7 @@ const getCredentials = async (serviceAccountFile) => {
  * @returns {Promise<object[]>} Array of upserted product responses
  */
 const upsertProducts = async (
-  credsPath,
+  credsJson,
   merchantId,
   dataSourceId,
   productInputs,
@@ -77,8 +56,7 @@ const upsertProducts = async (
 ) => {
   if (productInputs.length === 0) return [];
 
-  const config = getConfig(credsPath, merchantId);
-  const authClient = await getCredentials(config.serviceAccountFile);
+  const authClient = await getCredentials(credsJson);
 
   const client = new ProductInputsServiceClient({ authClient });
   const parent = `accounts/${merchantId}`;
@@ -106,7 +84,7 @@ const upsertProducts = async (
 /**
  * Deletes multiple products from Google Merchant Center concurrently.
  *
- * @param {string} credsPath - Path to the service account JSON file
+ * @param {string} credsJson - JSON string containing service account credentials
  * @param {string} merchantId - The Merchant Center account ID
  * @param {string} dataSourceId - The data source ID
  * @param {string} feedLabel - The feed label for the products
@@ -116,7 +94,7 @@ const upsertProducts = async (
  * @returns {Promise<void>}
  */
 const deleteProducts = async (
-  credsPath,
+  credsJson,
   merchantId,
   dataSourceId,
   feedLabel,
@@ -126,8 +104,7 @@ const deleteProducts = async (
 ) => {
   if (skus.length === 0) return;
 
-  const config = getConfig(credsPath, merchantId);
-  const authClient = await getCredentials(config.serviceAccountFile);
+  const authClient = await getCredentials(credsJson);
 
   const client = new ProductInputsServiceClient({ authClient });
   const dataSource = `accounts/${merchantId}/dataSources/${dataSourceId}`;

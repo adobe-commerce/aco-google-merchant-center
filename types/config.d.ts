@@ -47,7 +47,7 @@ export interface FeedConfig {
   acoApiBaseUrl: string;
   acoViewId: string;
   acoPriceBookId: string;
-  googleCredsPath: string;
+  googleCredsJson: string;
   googleMerchantId: string;
   googleDataSourceId: string;
   googleFeedLabel: string;

@@ -69,21 +69,7 @@ npm install -g @adobe/aio-cli
    7. Click **Save configured API**
    8. Repeat the above steps for the following APIs to add them to your credential:
       1. I/O Management API
-4. Subscribe to the Commerce Catalog Events
-   1. Click the **Add service** button.
-   2. In the dropdown, select **Event**.
-   3. Select the **Commerce Catalog Events** card.
-   4. Click **Next**.
-   5. Select the **Instance ID** you wish to subscribe to. This will be your Commerce Tenant ID.
-   6. Click **Next**.
-   7. Choose which events to subscribe to. Select **Product Update** and **Price Update**.
-   8. Click **Next**.
-   9. Select the OAuth Server-to-Server credential to add this event registration to.
-   10. Click **Next**.
-   11. Give the event registration a name.
-   12. Click **Next**.
-   13. Click **Save configured events**.
-5. Click the **Download all** button in the top right of the Developer Console to download the **Workspace JSON file**
+4. Click the **Download all** button in the top right of the Developer Console to download the **Workspace JSON file**
    and save it locally (do not commit to source control). This file will be used to configure
    the Adobe authorization environment variables via the `aio app use --merge` CLI command.
 
@@ -108,7 +94,13 @@ npm install -g @adobe/aio-cli
 #### Configure the .env file
 
 1. Google Merchant Center credentials
-   1. **GOOGLE_CREDS_PATH**: The path where your Google API credentials file is stored (ie. `/Users/app/aco-google-merchant-center/google-creds.json`).
+   1. Place your Google service account JSON file at `./google-creds.json`
+   2. Run the helper script to add the credentials to your `.env` file:
+      ```sh
+      ./google-creds-to-env.sh
+      ```
+      Or specify a custom path: `./google-creds-to-env.sh /path/to/creds.json`
+   3. Verify `.env` contains `GOOGLE_CREDS_JSON={...}` with your service account JSON
 2. Commerce Optimizer configuration
    1. **ACO_API_BASE_URL**: The base URL of the Commerce Optimizer API (ie. `https://na1-sandbox.api.commerce.adobe.com`).
    2. **ACO_TENANT_ID**: The Commerce Optimizer tenant identifier to synchronize with Google Product Feed.
@@ -146,6 +138,31 @@ See the following App Builder documentation for more info:
 
 - [Logging and Monitoring](https://developer.adobe.com/app-builder/docs/guides/runtime_guides/logging-monitoring)
 - [Logging and Troubleshooting](https://developer.adobe.com/commerce/extensibility/app-development/best-practices/logging-troubleshooting)
+
+#### Configure the Event Registration
+
+1. Log in to the [Developer Console](https://developer.adobe.com/console).
+2. Navigate into the desired workspace (ie **Stage**).
+3. Subscribe to the Commerce Saas Catalog Events.
+   1. Click the **Add service** button.
+   2. In the dropdown, select **Event**.
+   3. Select the **Commerce Saas Catalog Events (beta)** card.
+      ![Select Commerce Saas Catalog Events card](./docs/event_reg_card.png)
+   4. Click **Next**.
+   5. Select the **Instance ID** you wish to subscribe to. This will be your Commerce Tenant ID.
+      ![Select instance/tenant ID](./docs/event_reg_instance_id.png)
+   6. Click **Next**.
+   7. Choose which events to subscribe to. Select **Product Events ACO/CCDM** and **Price Events ACO/CCDM**.
+      ![Select product and price events to subscribe to](./docs/event_reg_types.png)
+   8. Click **Next**.
+   9. Select the OAuth Server-to-Server credential to add this event registration to.
+   10. Click **Next**.
+   11. Give the event registration a name.
+   12. Click **Next**.
+   13. Under **How to receive events** select **Option 2** for **Runtime action**
+   14. In the dropdown, select the `aco-google-merchant-center/catalog` runtime action.
+       ![Select runtime action delivery method](./docs/event_reg_runtime_action.png)
+   15. Click **Save configured events**.
 
 ### Tail All Action Logs
 

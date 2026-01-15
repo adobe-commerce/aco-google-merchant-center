@@ -426,7 +426,7 @@ const processProductEvent = async (tenantId, items, feedConfig, logger) => {
     );
     if (productsToUpsert.length > 0) {
       await upsertProducts(
-        feedConfig.googleCredsPath,
+        feedConfig.googleCredsJson,
         feedConfig.googleMerchantId,
         feedConfig.googleDataSourceId,
         productsToUpsert,
@@ -439,7 +439,7 @@ const processProductEvent = async (tenantId, items, feedConfig, logger) => {
     const skusToDelete = prepareSkusToDelete(deleteOps);
     if (skusToDelete.length > 0) {
       await deleteProducts(
-        feedConfig.googleCredsPath,
+        feedConfig.googleCredsJson,
         feedConfig.googleMerchantId,
         feedConfig.googleDataSourceId,
         feedConfig.googleFeedLabel,

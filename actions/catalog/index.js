@@ -52,7 +52,7 @@ const buildFeedConfig = (params, market) => {
     acoApiBaseUrl: params.ACO_API_BASE_URL,
     acoViewId: market.aco.viewId,
     acoPriceBookId: market.aco.priceBookId,
-    googleCredsPath: params.GOOGLE_CREDS_PATH,
+    googleCredsJson: params.GOOGLE_CREDS_JSON,
     googleMerchantId: market.google.merchantId,
     googleDataSourceId: market.google.dataSourceId,
     googleFeedLabel: market.google.feedLabel,
@@ -80,7 +80,7 @@ const main = async (params) => {
   const requiredEnv = [
     "ACO_API_BASE_URL",
     "ACO_TENANT_ID",
-    "GOOGLE_CREDS_PATH",
+    "GOOGLE_CREDS_JSON",
   ];
   const missingEnv = checkMissingRequestInputs(params, requiredEnv, []);
   if (missingEnv) {
@@ -97,8 +97,19 @@ const main = async (params) => {
 
   try {
     const { type, data } = params;
-    const { items } = data;
-    const tenantId = params.ACO_TENANT_ID;
+    const { instanceId: tenantId, items } = data;
+    const expectedTenantId = params.ACO_TENANT_ID;
+
+    // Sanity check if the event tenant ID matches the expected tenant ID
+    if (tenantId !== expectedTenantId) {
+      logger.error(
+        `Event tenant ID ${tenantId} does not match expected tenant ID ${expectedTenantId}`
+      );
+      return errorResponse(
+        HTTP_BAD_REQUEST,
+        `Event tenant ID ${tenantId} does not match expected tenant ID ${expectedTenantId}`
+      );
+    }
 
     const marketConfig = loadMarketConfig();
     logger.debug(`Loaded configuration for ${marketConfig.length} markets`);
