@@ -77,11 +77,7 @@ const main = async (params) => {
     `Processing catalog event for tenant: ${params.data?.instanceId}`
   );
 
-  const requiredEnv = [
-    "ACO_API_BASE_URL",
-    "ACO_TENANT_ID",
-    "GOOGLE_CREDS_PATH",
-  ];
+  const requiredEnv = ["ACO_API_BASE_URL", "GOOGLE_CREDS_PATH"];
   const missingEnv = checkMissingRequestInputs(params, requiredEnv, []);
   if (missingEnv) {
     logger.error(`Missing environment variables: ${missingEnv}`);
@@ -98,18 +94,6 @@ const main = async (params) => {
   try {
     const { type, data } = params;
     const { instanceId: tenantId, items } = data;
-    const expectedTenantId = params.ACO_TENANT_ID;
-
-    // Check if the event tenant ID matches the expected tenant ID
-    if (tenantId !== expectedTenantId) {
-      logger.error(
-        `Event tenant ID ${tenantId} does not match expected tenant ID ${expectedTenantId}`
-      );
-      return errorResponse(
-        HTTP_BAD_REQUEST,
-        `Event tenant ID ${tenantId} does not match expected tenant ID ${expectedTenantId}`
-      );
-    }
 
     const marketConfig = loadMarketConfig();
     logger.debug(`Loaded configuration for ${marketConfig.length} markets`);
