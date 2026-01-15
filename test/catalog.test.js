@@ -71,7 +71,7 @@ const baseParams = {
   ACO_API_BASE_URL: "https://api.example.com",
   ACO_TENANT_ID: "tenant-123",
   GOOGLE_CREDS_JSON: '{"type":"service_account"}',
-  type: "com.adobe.commerce.storefront.events.product.aco",
+  type: "com.adobe.commerce.storefront.events.product.ccdm",
   data: {
     instanceId: "tenant-123",
     items: [],
@@ -85,7 +85,7 @@ describe("catalog action", () => {
 
   test("returns error when required env vars are missing", async () => {
     const params = {
-      type: "com.adobe.commerce.storefront.events.product.aco",
+      type: "com.adobe.commerce.storefront.events.product.ccdm",
       data: { instanceId: "test", items: [] },
     };
 
@@ -205,7 +205,7 @@ describe("catalog action", () => {
 
     const params = {
       ...baseParams,
-      type: "com.adobe.commerce.storefront.events.price.aco",
+      type: "com.adobe.commerce.storefront.events.price.ccdm",
       data: {
         instanceId: "tenant-123",
         items: [
@@ -229,7 +229,7 @@ describe("catalog action", () => {
 
     const params = {
       ...baseParams,
-      type: "com.adobe.commerce.storefront.events.price.aco",
+      type: "com.adobe.commerce.storefront.events.price.ccdm",
       data: {
         instanceId: "tenant-123",
         items: [
