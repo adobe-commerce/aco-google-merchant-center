@@ -20,14 +20,24 @@ jest.mock("./../processors/aco/products.js", () => ({
   processProductEvent: jest.fn(),
 }));
 
+jest.mock("./../processors/aco/prices.js", () => ({
+  processPriceEvent: jest.fn(),
+}));
+
 jest.mock("./../actions/config.js", () => ({
   loadMarketConfig: jest.fn(),
   buildLocaleIndex: jest.fn(),
+  buildPriceBookIndex: jest.fn(),
 }));
 
 const { Core } = require("@adobe/aio-sdk");
 const { processProductEvent } = require("./../processors/aco/products.js");
-const { loadMarketConfig, buildLocaleIndex } = require("./../actions/config.js");
+const { processPriceEvent } = require("./../processors/aco/prices.js");
+const {
+  loadMarketConfig,
+  buildLocaleIndex,
+  buildPriceBookIndex,
+} = require("./../actions/config.js");
 const action = require("./../actions/catalog/index.js");
 
 const mockLoggerInstance = {
@@ -63,6 +73,9 @@ beforeEach(() => {
   loadMarketConfig.mockReturnValue(mockMarketConfig);
   buildLocaleIndex.mockReturnValue(
     new Map([["en-us", mockMarketConfig]])
+  );
+  buildPriceBookIndex.mockReturnValue(
+    new Map([["price-book-123", mockMarketConfig]])
   );
 });
 
@@ -201,7 +214,7 @@ describe("catalog action", () => {
   });
 
   test("processes price events successfully", async () => {
-    processProductEvent.mockResolvedValue();
+    processPriceEvent.mockResolvedValue();
 
     const params = {
       ...baseParams,
@@ -212,7 +225,7 @@ describe("catalog action", () => {
           {
             sku: "test-sku",
             operation: "update",
-            sources: [{ locale: "en-US", priceBookId: "price-book-123" }],
+            sources: [{ priceBookId: "price-book-123" }],
           },
         ],
       },
@@ -221,11 +234,11 @@ describe("catalog action", () => {
     const result = await action.main(params);
 
     expect(result.statusCode).toBe(200);
-    expect(processProductEvent).toHaveBeenCalled();
+    expect(processPriceEvent).toHaveBeenCalled();
   });
 
   test("skips price events that do not match market price book", async () => {
-    processProductEvent.mockResolvedValue();
+    processPriceEvent.mockResolvedValue();
 
     const params = {
       ...baseParams,
@@ -236,7 +249,7 @@ describe("catalog action", () => {
           {
             sku: "test-sku",
             operation: "update",
-            sources: [{ locale: "en-US", priceBookId: "different-price-book" }],
+            sources: [{ priceBookId: "different-price-book" }],
           },
         ],
       },
@@ -245,7 +258,7 @@ describe("catalog action", () => {
     const result = await action.main(params);
 
     expect(result.statusCode).toBe(200);
-    expect(processProductEvent).not.toHaveBeenCalled();
+    expect(processPriceEvent).not.toHaveBeenCalled();
   });
 
   test("returns error when processProductEvent fails", async () => {

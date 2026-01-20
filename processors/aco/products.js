@@ -453,4 +453,6 @@ const processProductEvent = async (tenantId, items, feedConfig, logger) => {
 
 module.exports = {
   processProductEvent,
+  fetchSimpleProducts,
+  transformSimpleItems,
 };

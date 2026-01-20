@@ -100,8 +100,30 @@ const buildLocaleIndex = (markets) => {
   return index;
 };
 
+/**
+ * Builds a priceBookId-to-markets lookup map for price event routing.
+ * A single priceBookId can map to multiple markets.
+ *
+ * @param {MarketConfig[]} markets - Array of market configurations
+ * @returns {Map<string, MarketConfig[]>} Map of priceBookId to array of market configs
+ */
+const buildPriceBookIndex = (markets) => {
+  const index = new Map();
+
+  for (const market of markets) {
+    const priceBookId = market.aco.priceBookId;
+    if (!index.has(priceBookId)) {
+      index.set(priceBookId, []);
+    }
+    index.get(priceBookId).push(market);
+  }
+
+  return index;
+};
+
 module.exports = {
   loadMarketConfig,
   loadAttributeMappingConfig,
   buildLocaleIndex,
+  buildPriceBookIndex,
 };

@@ -26,19 +26,16 @@ const { errorResponse, successResponse } = require("../responses.js");
 const {
   checkMissingRequestInputs,
   groupItemsByMarket,
+  groupPriceItemsByMarket,
   stringParameters,
 } = require("../utils.js");
-const { loadMarketConfig, buildLocaleIndex } = require("../config.js");
+const {
+  loadMarketConfig,
+  buildLocaleIndex,
+  buildPriceBookIndex,
+} = require("../config.js");
 const { processProductEvent } = require("../../processors/aco/products.js");
-
-/**
- * Filters price event items to only include those matching the market's price book.
- */
-const filterPriceItemsForMarket = (items, priceBookId) => {
-  return items.filter((item) =>
-    item.sources?.some((source) => source.priceBookId === priceBookId)
-  );
-};
+const { processPriceEvent } = require("../../processors/aco/prices.js");
 
 /**
  * Builds feed configuration from action params and market config.
@@ -113,54 +110,75 @@ const main = async (params) => {
 
     const marketConfig = loadMarketConfig();
     logger.debug(`Loaded configuration for ${marketConfig.length} markets`);
-    const localeIndex = buildLocaleIndex(marketConfig);
-    // Group the event items by the configured markets
-    const itemsByMarket = groupItemsByMarket(items, localeIndex, logger);
 
-    if (itemsByMarket.size === 0) {
-      logger.info(
-        "No event items matched configured markets, skipping processing"
-      );
-      return successResponse(type, "No event items matched configured markets");
-    }
+    if (type === ACO_EVENT_TYPE_PRODUCT) {
+      const localeIndex = buildLocaleIndex(marketConfig);
+      const itemsByMarket = groupItemsByMarket(items, localeIndex, logger);
 
-    for (const [marketId, { market, items: marketItems }] of itemsByMarket) {
-      logger.info(
-        `Processing ${marketItems.length} items for market: ${marketId}`
-      );
-      const feedConfig = buildFeedConfig(params, market);
-
-      if (type === ACO_EVENT_TYPE_PRODUCT) {
-        await processProductEvent(tenantId, marketItems, feedConfig, logger);
-      } else if (type === ACO_EVENT_TYPE_PRICE) {
-        // Filter price event items to only include those matching the market's price book
-        const validItems = filterPriceItemsForMarket(
-          marketItems,
-          market.aco.priceBookId
+      if (itemsByMarket.size === 0) {
+        logger.info(
+          "No product event items matched configured markets, skipping processing"
         );
-        if (validItems.length > 0) {
-          logger.info(
-            `Processing ${validItems.length} of ${marketItems.length} price events for market ${marketId}`
-          );
-          // Price events are processed the same way as product events
-          await processProductEvent(tenantId, validItems, feedConfig, logger);
-        } else {
-          logger.info(`No price events for market ${marketId} price book`);
-        }
-      } else {
-        logger.error(`Invalid event type: ${type}`);
-        return errorResponse(HTTP_BAD_REQUEST, `Invalid event type: ${type}`);
+        return successResponse(
+          type,
+          "No event items matched configured markets"
+        );
       }
-    }
 
-    const totalProcessed = [...itemsByMarket.values()].reduce(
-      (sum, { items }) => sum + items.length,
-      0
-    );
-    return successResponse(
-      type,
-      `Processed ${totalProcessed} item(s) across ${itemsByMarket.size} market(s) for tenant: ${tenantId}`
-    );
+      for (const [marketId, { market, items: marketItems }] of itemsByMarket) {
+        logger.info(
+          `Processing ${marketItems.length} product event items for market: ${marketId}`
+        );
+        const feedConfig = buildFeedConfig(params, market);
+        await processProductEvent(tenantId, marketItems, feedConfig, logger);
+      }
+
+      const totalProcessed = [...itemsByMarket.values()].reduce(
+        (sum, { items }) => sum + items.length,
+        0
+      );
+      return successResponse(
+        type,
+        `Processed ${totalProcessed} item(s) across ${itemsByMarket.size} market(s) for tenant: ${tenantId}`
+      );
+    } else if (type === ACO_EVENT_TYPE_PRICE) {
+      const priceBookIndex = buildPriceBookIndex(marketConfig);
+      const itemsByMarket = groupPriceItemsByMarket(
+        items,
+        priceBookIndex,
+        logger
+      );
+
+      if (itemsByMarket.size === 0) {
+        logger.info(
+          "No price event items matched configured markets, skipping processing"
+        );
+        return successResponse(
+          type,
+          "No event items matched configured markets"
+        );
+      }
+
+      for (const [marketId, { market, items: marketItems }] of itemsByMarket) {
+        logger.info(
+          `Processing ${marketItems.length} price event items for market: ${marketId}`
+        );
+        const feedConfig = buildFeedConfig(params, market);
+        await processPriceEvent(tenantId, marketItems, feedConfig, logger);
+      }
+
+      const totalProcessed = [...itemsByMarket.values()].reduce(
+        (sum, { items }) => sum + items.length,
+        0
+      );
+      return successResponse(
+        type,
+        `Processed ${totalProcessed} item(s) across ${itemsByMarket.size} market(s) for tenant: ${tenantId}`
+      );
+    } else {
+      logger.error(`Invalid event type: ${type}`);
+      return errorResponse(HTTP_BAD_REQUEST, `Invalid event type: ${type}`);
+    }
   } catch (error) {
     logger.error(`Could not process catalog event. Error: ${error.message}`);
     return errorResponse(HTTP_INTERNAL_ERROR, error.message);

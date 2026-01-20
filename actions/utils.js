@@ -200,11 +200,58 @@ function groupItemsByMarket(items, localeIndex, logger) {
   return itemsByMarket;
 }
 
+/**
+ * Groups price event items by their applicable markets based on source.priceBookId.
+ * A single priceBookId can map to multiple markets, so items may appear in multiple groups.
+ *
+ * @param {object[]} items - Price event items with sources array containing priceBookId
+ * @param {Map<string, object[]>} priceBookIndex - PriceBookId to markets lookup
+ * @param {object} logger - Logger instance
+ * @returns {Map<string, { market: object, items: object[] }>} Items grouped by market id
+ */
+function groupPriceItemsByMarket(items, priceBookIndex, logger) {
+  const itemsByMarket = new Map();
+  let skippedCount = 0;
+
+  for (const item of items) {
+    let matched = false;
+
+    for (const source of item.sources || []) {
+      const priceBookId = source.priceBookId;
+      const markets = priceBookIndex.get(priceBookId);
+
+      if (markets) {
+        matched = true;
+        for (const market of markets) {
+          if (!itemsByMarket.has(market.id)) {
+            itemsByMarket.set(market.id, { market, items: [] });
+          }
+          itemsByMarket.get(market.id).items.push(item);
+        }
+        break;
+      }
+    }
+
+    if (!matched) {
+      skippedCount++;
+    }
+  }
+
+  if (skippedCount > 0) {
+    logger.debug(
+      `Skipped ${skippedCount} price items with unconfigured priceBookIds`
+    );
+  }
+
+  return itemsByMarket;
+}
+
 module.exports = {
   checkMissingRequestInputs,
   chunk,
   getBearerToken,
   groupByOperation,
   groupItemsByMarket,
+  groupPriceItemsByMarket,
   stringParameters,
 };
