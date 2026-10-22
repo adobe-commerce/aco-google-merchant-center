@@ -42,3 +42,8 @@ logs
 
 # Google credentials
 google-creds.json
+
+# AI
+.scout/
+.claude/
+
